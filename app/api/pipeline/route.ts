@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { dealPipeline, parcels, dealScores } from "@/drizzle/schema";
+import { dealPipeline, parcels, dealScores, pipelineActivity } from "@/drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import type { PipelineStatus } from "@/drizzle/schema";
 
@@ -59,6 +59,14 @@ export async function POST(req: Request) {
     }
 
     const db = getDb();
+
+    // Check if already in pipeline (for conflict detection)
+    const existing = await db
+      .select({ id: dealPipeline.id, status: dealPipeline.status })
+      .from(dealPipeline)
+      .where(eq(dealPipeline.parcelId, parcelId))
+      .limit(1);
+
     const [item] = await db
       .insert(dealPipeline)
       .values({ parcelId, status, notes, assignedTo, addedBy: "demo" })
@@ -67,6 +75,19 @@ export async function POST(req: Request) {
         set: { status, notes, assignedTo, updatedAt: new Date() },
       })
       .returning();
+
+    // Log the activity
+    const fromStatus = existing[0]?.status ?? null;
+    if (!existing[0] || fromStatus !== status) {
+      await db.insert(pipelineActivity).values({
+        pipelineId: item.id,
+        parcelId,
+        fromStatus,
+        toStatus: status,
+        note: notes ?? null,
+        userKey: "demo",
+      });
+    }
 
     return NextResponse.json({ item });
   } catch (err) {
