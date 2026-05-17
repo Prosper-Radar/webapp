@@ -17,61 +17,121 @@ export type ContactResult = {
   source?: string;
   fetched_at?: string;
   contact_tip?: string;
-  links?: Record<string, string>;
+  links: Record<string, string>;
 };
 
-function apiBaseUrl(): string | null {
-  const raw =
-    process.env.DEALSCOUT_API_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    "";
-  return raw ? raw.replace(/\/+$/, "") : null;
+// ── Detect individual vs entity ───────────────────────────────────────────────
+
+const ENTITY_WORDS = /\b(LLC|L\.L\.C|INC|CORP|LTD|LP|LLP|LLLP|PA|PL|PLLC|TRUST|ESTATE|GROUP|FUND|HOLDING|PROPERTIES|REALTY|INVESTMENTS?|VENTURES?)\b/i;
+
+function detectEntityType(name: string): "INDIVIDUAL" | "ENTITY" {
+  return ENTITY_WORDS.test(name) ? "ENTITY" : "INDIVIDUAL";
 }
 
-/**
- * GET /api/contact?dealId=<uuid>&refresh=true
- * Proxies to FastAPI GET /api/v1/deals/{dealId}/contact
- */
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const dealId = searchParams.get("dealId");
-  const refresh = searchParams.get("refresh") === "true";
+// ── Generate targeted search links ───────────────────────────────────────────
 
-  if (!dealId) {
-    return NextResponse.json({ error: "dealId required" }, { status: 400 });
+function buildLinks(name: string, isIndividual: boolean): Record<string, string> {
+  const enc = encodeURIComponent(name);
+  const encQ = encodeURIComponent(`"${name}"`);
+
+  const sunbiz = `https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults?inquiryType=EntityName&inquiryDirectionType=BEGINS&searchTerm=${enc}`;
+
+  if (isIndividual) {
+    return {
+      sunbiz,
+      linkedin:    `https://www.linkedin.com/search/results/people/?keywords=${enc}`,
+      whitepages:  `https://www.whitepages.com/name/${name.toLowerCase().replaceAll(" ", "-")}`,
+      google:      `https://www.google.com/search?q=${encQ}+email+OR+phone+Miami+Florida+real+estate`,
+      fastpeoplesearch: `https://www.fastpeoplesearch.com/name/${enc.replace(/%20/g, "-")}`,
+    };
   }
 
-  const base = apiBaseUrl();
-  if (!base) {
-    return NextResponse.json(
-      { found: false, reason: "API not configured", links: {} },
-      { status: 200 },
-    );
-  }
+  return {
+    sunbiz,
+    opencorporates: `https://opencorporates.com/companies/us_fl?q=${enc}`,
+    linkedin:       `https://www.linkedin.com/search/results/companies/?keywords=${enc}`,
+    google:         `https://www.google.com/search?q=${encQ}+Miami+Florida+contact+OR+email+OR+phone`,
+    bizapedia:      `https://www.bizapedia.com/fl/${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.html`,
+  };
+}
+
+// ── Try to enrich via FastAPI (best-effort, non-blocking) ────────────────────
+
+async function tryFastApiSkipTrace(
+  dealId: string,
+  refresh: boolean,
+): Promise<Partial<ContactResult> | null> {
+  const base = (
+    process.env.DEALSCOUT_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    ""
+  ).replace(/\/+$/, "");
+
+  if (!base) return null;
 
   try {
     const url = `${base}/api/v1/deals/${dealId}/contact${refresh ? "?refresh=true" : ""}`;
     const res = await fetch(url, {
       cache: "no-store",
-      signal: AbortSignal.timeout(20_000), // 20s — skip trace can be slow
+      signal: AbortSignal.timeout(15_000),
     });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("FastAPI contact error", res.status, text);
-      return NextResponse.json(
-        { found: false, reason: `API error ${res.status}`, links: {} },
-        { status: 200 },
-      );
-    }
-
-    const data = (await res.json()) as ContactResult;
-    return NextResponse.json(data);
-  } catch (err) {
-    console.error("Contact proxy error:", err);
-    return NextResponse.json(
-      { found: false, reason: "Could not reach the API", links: {} },
-      { status: 200 },
-    );
+    if (!res.ok) return null;
+    return (await res.json()) as Partial<ContactResult>;
+  } catch {
+    return null; // silently fall back to link-only mode
   }
+}
+
+/**
+ * GET /api/contact?dealId=<uuid>&ownerName=<name>&refresh=true
+ *
+ * Always returns useful search links (no FastAPI required).
+ * Enriches with Sunbiz officer data if FastAPI is reachable.
+ */
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const dealId   = searchParams.get("dealId") ?? "";
+  const ownerName = decodeURIComponent(searchParams.get("ownerName") ?? "").trim();
+  const refresh  = searchParams.get("refresh") === "true";
+
+  if (!ownerName) {
+    return NextResponse.json({
+      found: false,
+      reason: "No owner name available for this parcel.",
+      links: {},
+    } satisfies ContactResult);
+  }
+
+  const isIndividual = detectEntityType(ownerName) === "INDIVIDUAL";
+  const links = buildLinks(ownerName, isIndividual);
+
+  const tip = isIndividual
+    ? "Individual owner — LinkedIn People and Whitepages often have direct contact info."
+    : "Entity owner — check the officers list from Sunbiz, or search LinkedIn for the company.";
+
+  // Try to enrich via FastAPI (silently skip if unreachable)
+  if (dealId) {
+    const enriched = await tryFastApiSkipTrace(dealId, refresh);
+    if (enriched?.found) {
+      return NextResponse.json({
+        ...enriched,
+        is_individual: isIndividual,
+        links: { ...links, ...enriched.links },
+        contact_tip: tip,
+      } satisfies ContactResult);
+    }
+  }
+
+  // Fallback: links only (always works)
+  return NextResponse.json({
+    found: false,
+    reason: isIndividual
+      ? "No public entity record found — this appears to be an individual owner."
+      : "Entity not found in FL Sunbiz — may be registered out-of-state.",
+    owner_name_raw: ownerName,
+    is_individual: isIndividual,
+    entity_type: isIndividual ? "INDIVIDUAL" : "ENTITY",
+    contact_tip: tip,
+    links,
+  } satisfies ContactResult);
 }
