@@ -1,12 +1,12 @@
 import "server-only";
 
 export type ApiDealScores = {
-  waterfront: number;
+  waterfront: number | null;       // null when no NHD water data yet
   zoning: number;
   price_range: number;
   lot_size: number;
-  population_growth: number;
-  traffic: number;
+  population_growth: number | null; // null when no Census API key
+  traffic: number | null;           // null when FDOT returned nothing
   recency: number;
   total: number;
 };

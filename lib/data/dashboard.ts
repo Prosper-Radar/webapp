@@ -4,7 +4,8 @@ import { fetchDealsFromApi, type ApiDeal } from "@/lib/api/deals";
 import { getRankedParcels, type RankedParcelRow } from "@/lib/queries/parcels";
 import type { DashboardRow } from "@/lib/types/dashboard";
 
-function roundScore(n: number): number {
+function roundScore(n: number | null | undefined): number {
+  if (n === null || n === undefined || !Number.isFinite(n)) return 0;
   return Math.round(Math.min(100, Math.max(0, n)));
 }
 
@@ -14,6 +15,18 @@ function mapApiDeal(deal: ApiDeal, rank: number): DashboardRow {
     typeof deal.lat === "number" && Number.isFinite(deal.lat) ? deal.lat : null;
   const lng =
     typeof deal.lng === "number" && Number.isFinite(deal.lng) ? deal.lng : null;
+
+  // Only include pillars that have real data (null = metric was skipped by engine)
+  const pillars: { label: string; value: number }[] = [
+    ...(s.waterfront != null ? [{ label: "Waterfront", value: roundScore(s.waterfront) }] : []),
+    { label: "Zoning",     value: roundScore(s.zoning) },
+    { label: "Price",      value: roundScore(s.price_range) },
+    { label: "Lot size",   value: roundScore(s.lot_size) },
+    ...(s.population_growth != null ? [{ label: "Population", value: roundScore(s.population_growth) }] : []),
+    ...(s.traffic != null ? [{ label: "Traffic", value: roundScore(s.traffic) }] : []),
+    { label: "Recency",    value: roundScore(s.recency) },
+  ];
+
   return {
     rank,
     id: deal.id,
@@ -26,15 +39,7 @@ function mapApiDeal(deal: ApiDeal, rank: number): DashboardRow {
     lng,
     onWatchlist: false,
     watchlistNote: null,
-    pillars: [
-      { label: "Waterfront", value: roundScore(s.waterfront) },
-      { label: "Zoning", value: roundScore(s.zoning) },
-      { label: "Price", value: roundScore(s.price_range) },
-      { label: "Lot size", value: roundScore(s.lot_size) },
-      { label: "Population", value: roundScore(s.population_growth) },
-      { label: "Traffic", value: roundScore(s.traffic) },
-      { label: "Recency", value: roundScore(s.recency) },
-    ],
+    pillars,
     facts: [
       { label: "County", value: deal.county },
       { label: "Parcel ID", value: deal.parcel_id },
