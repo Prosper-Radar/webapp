@@ -1,7 +1,8 @@
 import { ParcelDashboard } from "@/components/deal-scout/parcel-dashboard";
 import { getDashboardPayload } from "@/lib/data/dashboard";
 
-export const dynamic = "force-dynamic";
+// Revalidate from cache every 5 min (unstable_cache handles it)
+export const dynamic = "force-static";
 
 export default async function Home() {
   const { rows, source } = await getDashboardPayload();
