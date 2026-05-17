@@ -24,7 +24,12 @@ import {
   Send,
   RefreshCw,
   ArrowRight,
+  Phone,
+  Globe,
+  BadgeCheck,
+  Loader2,
 } from "lucide-react";
+import type { ContactResult } from "@/app/api/contact/route";
 import { ParcelMap } from "@/components/deal-scout/parcel-map";
 import { cn } from "@/lib/utils";
 import type { DashboardRow } from "@/lib/types/dashboard";
@@ -140,6 +145,190 @@ function PipelineBadge({ status }: Readonly<{ status: PipelineStatus }>) {
 
 // ─── Deal Detail Panel ────────────────────────────────────────────────────────
 // Expanded view shown when a card is selected
+
+// ─── Contact / Skip Trace section ─────────────────────────────────────────────
+
+const LINK_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  sunbiz:          { label: "Sunbiz FL",         icon: <BadgeCheck className="size-3" />,  color: "text-blue-600 dark:text-blue-400" },
+  opencorporates:  { label: "OpenCorporates",    icon: <Globe className="size-3" />,        color: "text-orange-600 dark:text-orange-400" },
+  linkedin:        { label: "LinkedIn People",   icon: <Globe className="size-3" />,        color: "text-sky-600 dark:text-sky-400" },
+  linkedin_company:{ label: "LinkedIn Company",  icon: <Globe className="size-3" />,        color: "text-sky-600 dark:text-sky-400" },
+  google_email:    { label: "Google (email)",    icon: <Globe className="size-3" />,        color: "text-foreground/70" },
+  google_contact:  { label: "Google",            icon: <Globe className="size-3" />,        color: "text-foreground/70" },
+  whitepages:      { label: "Whitepages",        icon: <Phone className="size-3" />,        color: "text-muted-foreground" },
+  bizapedia:       { label: "Bizapedia FL",      icon: <FileText className="size-3" />,     color: "text-muted-foreground" },
+};
+
+function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerName?: string | null }>) {
+  const [contact, setContact] = React.useState<ContactResult | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [ran, setRan] = React.useState(false);
+
+  async function runSkipTrace(refresh = false) {
+    setLoading(true);
+    setRan(true);
+    try {
+      const params = new URLSearchParams({ dealId });
+      if (refresh) params.set("refresh", "true");
+      const res = await fetch(`/api/contact?${params.toString()}`);
+      const data = await res.json() as ContactResult;
+      setContact(data);
+    } catch {
+      setContact({ found: false, reason: "Network error", links: {} });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+          <Phone className="size-3" />
+          Owner Contact
+        </p>
+        {ran && !loading ? (
+          <button
+            type="button"
+            onClick={() => runSkipTrace(true)}
+            className="flex items-center gap-1 text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors"
+          >
+            <RefreshCw className="size-2.5" /> Refresh
+          </button>
+        ) : null}
+      </div>
+
+      {!ran ? (
+        /* Pre-run state */
+        <div className="rounded-xl border border-dashed border-border/60 p-3 text-center">
+          {ownerName ? (
+            <p className="mb-2 truncate text-[10px] font-medium text-foreground/70">{ownerName}</p>
+          ) : null}
+          <p className="mb-3 text-[10px] text-muted-foreground/50">
+            Search public records & Sunbiz for owner info
+          </p>
+          <button
+            type="button"
+            onClick={() => runSkipTrace()}
+            className="mx-auto flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+          >
+            <Globe className="size-3" />
+            Run Skip Trace
+          </button>
+        </div>
+      ) : loading ? (
+        /* Loading */
+        <div className="flex items-center justify-center gap-2 py-4 text-[10px] text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Searching Sunbiz & public records…
+        </div>
+      ) : contact ? (
+        /* Results */
+        <div className="space-y-2.5">
+          {/* Entity summary */}
+          {contact.found ? (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5 space-y-1.5">
+              {contact.entity_type ? (
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground/60">Type</span>
+                  <span className="font-medium text-foreground/80">{contact.entity_type}</span>
+                </div>
+              ) : null}
+              {contact.entity_status ? (
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground/60">Status</span>
+                  <span className={cn("font-semibold",
+                    contact.entity_status === "ACTIVE" ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
+                  )}>
+                    {contact.entity_status}
+                  </span>
+                </div>
+              ) : null}
+              {contact.filing_date ? (
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground/60">Filed</span>
+                  <span className="font-medium text-foreground/80">{contact.filing_date}</span>
+                </div>
+              ) : null}
+              {contact.registered_agent ? (
+                <div className="text-[10px]">
+                  <span className="text-muted-foreground/60">Registered agent: </span>
+                  <span className="font-medium text-foreground/80">{contact.registered_agent}</span>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="rounded-lg bg-muted/30 px-2.5 py-2 text-[10px] text-muted-foreground/60">
+              {contact.reason ?? "No entity data found in public records."}
+            </p>
+          )}
+
+          {/* Officers */}
+          {contact.officers && contact.officers.length > 0 ? (
+            <div>
+              <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">Officers / Contacts</p>
+              <div className="space-y-1.5">
+                {contact.officers.map((o) => (
+                  <div key={`${o.name}-${o.title}`} className="flex items-start gap-2 rounded-lg border border-border/40 bg-card/40 px-2.5 py-2">
+                    <User className="mt-0.5 size-3 shrink-0 text-muted-foreground/40" />
+                    <div className="min-w-0 text-[10px]">
+                      <p className="font-medium text-foreground/80 truncate">{o.name}</p>
+                      {o.title ? <p className="text-muted-foreground/60">{o.title}</p> : null}
+                      {o.address ? <p className="text-muted-foreground/50 text-[9px] truncate">{o.address}</p> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Contact tip */}
+          {contact.contact_tip ? (
+            <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-[10px] text-amber-700 dark:text-amber-300">
+              💡 {contact.contact_tip}
+            </p>
+          ) : null}
+
+          {/* Search links */}
+          {contact.links && Object.keys(contact.links).length > 0 ? (
+            <div>
+              <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
+                {contact.is_individual ? "Find individual" : "Find company contact"}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {Object.entries(contact.links).map(([key, url]) => {
+                  const meta = LINK_META[key];
+                  return (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2 py-1.5 text-[10px] font-medium hover:bg-card/70 transition-colors",
+                        meta?.color ?? "text-foreground/70",
+                      )}
+                    >
+                      {meta?.icon}
+                      <span className="truncate">{meta?.label ?? key}</span>
+                      <ExternalLink className="ml-auto size-2.5 shrink-0 opacity-40" />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          <p className="text-center text-[9px] text-muted-foreground/30">
+            Source: {contact.source ?? "public records"} · {contact.fetched_at ? new Date(contact.fetched_at).toLocaleDateString() : "just now"}
+          </p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// ─── Pipeline state ────────────────────────────────────────────────────────────
 
 type PipelineState = Record<string, { id: string; status: PipelineStatus; notes: string | null }>;
 
@@ -453,6 +642,9 @@ function DealDetailPanel({
               )}
             </section>
           ) : null}
+
+          {/* ── Contact / Skip Trace ── */}
+          <ContactSection dealId={row.id} ownerName={row.ownerName} />
 
           {/* ── Quick actions ── */}
           <section>

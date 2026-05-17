@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   Building2,
+  GripVertical,
   KanbanSquare,
   MapPin,
   MoreHorizontal,
@@ -47,6 +48,18 @@ function stageHeaderColor(color: string) {
   return map[color] ?? map.blue;
 }
 
+function stageDropColor(color: string) {
+  const map: Record<string, string> = {
+    blue:   "border-blue-500/60 bg-blue-500/5 ring-1 ring-blue-500/30",
+    yellow: "border-yellow-500/60 bg-yellow-500/5 ring-1 ring-yellow-500/30",
+    orange: "border-orange-500/60 bg-orange-500/5 ring-1 ring-orange-500/30",
+    purple: "border-purple-500/60 bg-purple-500/5 ring-1 ring-purple-500/30",
+    green:  "border-emerald-500/60 bg-emerald-500/5 ring-1 ring-emerald-500/30",
+    red:    "border-red-500/60 bg-red-500/5 ring-1 ring-red-500/30",
+  };
+  return map[color] ?? map.blue;
+}
+
 // ─── Mini score ring ──────────────────────────────────────────────────────────
 
 function MiniRing({ value }: Readonly<{ value: number }>) {
@@ -70,22 +83,56 @@ function MiniRing({ value }: Readonly<{ value: number }>) {
 
 function DealCard({
   item,
-  stages,
+  isDragging,
+  onDragStart,
+  onDragEnd,
   onMove,
   onDelete,
 }: Readonly<{
   item: PipelineItem;
-  stages: typeof PIPELINE_STAGES;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
   onMove: (id: string, status: PipelineStatus) => void;
   onDelete: (id: string) => void;
 }>) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const tier = tierFromScore(item.totalScore);
 
+  // Close menu on outside click
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   return (
-    <div className="group rounded-xl border border-border/60 bg-card/60 p-3 shadow-sm backdrop-blur-sm hover:border-border transition-colors">
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", item.id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "group cursor-grab rounded-xl border border-border/60 bg-card/60 p-3 shadow-sm backdrop-blur-sm transition-all duration-150 active:cursor-grabbing",
+        "hover:border-border hover:shadow-md",
+        isDragging && "opacity-40 scale-95 shadow-none",
+      )}
+    >
       <div className="flex items-start gap-2">
+        {/* Drag handle */}
+        <GripVertical className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/20 opacity-0 transition-opacity group-hover:opacity-100" />
+
         <MiniRing value={item.totalScore} />
+
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-medium text-foreground leading-tight">{item.address}</p>
           <div className="mt-0.5 flex items-center gap-1.5">
@@ -97,33 +144,31 @@ function DealCard({
             </span>
           </div>
           {item.zoning ? (
-            <p className="mt-1 text-[9px] text-muted-foreground/60">Zoning: {item.zoning}</p>
+            <p className="mt-0.5 text-[9px] text-muted-foreground/50">Zoning: {item.zoning}</p>
           ) : null}
         </div>
 
-        {/* Menu */}
-        <div className="relative shrink-0">
+        {/* Context menu */}
+        <div ref={menuRef} className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
             className="rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:bg-muted/40"
           >
             <MoreHorizontal className="size-3.5" />
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-5 z-50 w-40 rounded-xl border border-border/80 bg-card shadow-xl backdrop-blur-xl py-1">
+            <div className="absolute right-0 top-5 z-50 min-w-[160px] rounded-xl border border-border/80 bg-card shadow-xl backdrop-blur-xl py-1">
               <p className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">Move to</p>
-              {stages.map((stage) => (
-                stage.status !== item.status ? (
-                  <button
-                    key={stage.status}
-                    type="button"
-                    onClick={() => { onMove(item.id, stage.status); setMenuOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] text-foreground/80 hover:bg-muted/40"
-                  >
-                    {stage.label}
-                  </button>
-                ) : null
+              {PIPELINE_STAGES.filter((s) => s.status !== item.status).map((stage) => (
+                <button
+                  key={stage.status}
+                  type="button"
+                  onClick={() => { onMove(item.id, stage.status); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] text-foreground/80 hover:bg-muted/40"
+                >
+                  {stage.label}
+                </button>
               ))}
               <div className="my-1 border-t border-border/40" />
               <button
@@ -142,21 +187,53 @@ function DealCard({
   );
 }
 
+// ─── Drop placeholder ─────────────────────────────────────────────────────────
+
+function DropPlaceholder() {
+  return (
+    <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 h-14 transition-all" />
+  );
+}
+
 // ─── Kanban column ────────────────────────────────────────────────────────────
 
 function KanbanColumn({
   stage,
   items,
+  isDragOver,
+  draggingId,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   onMove,
   onDelete,
+  onCardDragStart,
+  onCardDragEnd,
 }: Readonly<{
   stage: typeof PIPELINE_STAGES[number];
   items: PipelineItem[];
+  isDragOver: boolean;
+  draggingId: string | null;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
   onMove: (id: string, status: PipelineStatus) => void;
   onDelete: (id: string) => void;
+  onCardDragStart: (id: string) => void;
+  onCardDragEnd: () => void;
 }>) {
   return (
-    <div className="flex h-full min-w-[220px] flex-1 flex-col overflow-hidden rounded-2xl border border-border/50 bg-muted/20">
+    <div
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={cn(
+        "flex h-full min-w-[220px] flex-1 flex-col overflow-hidden rounded-2xl border transition-all duration-150",
+        isDragOver
+          ? stageDropColor(stage.color)
+          : "border-border/50 bg-muted/20",
+      )}
+    >
       {/* Column header */}
       <div className={cn("flex items-center gap-2 border-b border-border/40 px-3 py-2.5", stageHeaderColor(stage.color))}>
         <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.15em]">{stage.label}</span>
@@ -169,13 +246,26 @@ function KanbanColumn({
 
       {/* Cards */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {items.length === 0 ? (
-          <div className="flex h-16 flex-col items-center justify-center">
-            <p className="text-[10px] text-muted-foreground/30">Empty</p>
+        {items.length === 0 && !isDragOver ? (
+          <div className="flex h-16 items-center justify-center">
+            <p className="text-[10px] text-muted-foreground/30">Drop here</p>
           </div>
-        ) : items.map((item) => (
-          <DealCard key={item.id} item={item} stages={PIPELINE_STAGES} onMove={onMove} onDelete={onDelete} />
+        ) : null}
+
+        {items.map((item) => (
+          <DealCard
+            key={item.id}
+            item={item}
+            isDragging={draggingId === item.id}
+            onDragStart={() => onCardDragStart(item.id)}
+            onDragEnd={onCardDragEnd}
+            onMove={onMove}
+            onDelete={onDelete}
+          />
         ))}
+
+        {/* Drop target placeholder */}
+        {isDragOver && draggingId ? <DropPlaceholder /> : null}
       </div>
     </div>
   );
@@ -188,18 +278,21 @@ export function PipelineBoard() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // DnD state
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = React.useState<PipelineStatus | null>(null);
+
   React.useEffect(() => {
     setLoading(true);
     fetch("/api/pipeline")
       .then((r) => r.json())
-      .then((data: { items?: PipelineItem[] }) => {
-        setItems(data.items ?? []);
-      })
+      .then((data: { items?: PipelineItem[] }) => setItems(data.items ?? []))
       .catch(() => setError("Failed to load pipeline"))
       .finally(() => setLoading(false));
   }, []);
 
   async function handleMove(id: string, status: PipelineStatus) {
+    // Optimistic update
     setItems((prev) => prev.map((item) => item.id === id ? { ...item, status } : item));
     await fetch(`/api/pipeline/${id}`, {
       method: "PATCH",
@@ -211,6 +304,23 @@ export function PipelineBoard() {
   async function handleDelete(id: string) {
     setItems((prev) => prev.filter((item) => item.id !== id));
     await fetch(`/api/pipeline/${id}`, { method: "DELETE" });
+  }
+
+  function handleDragOver(e: React.DragEvent, status: PipelineStatus) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverColumn(status);
+  }
+
+  function handleDrop(e: React.DragEvent, status: PipelineStatus) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text/plain");
+    const dragged = items.find((i) => i.id === id);
+    setDragOverColumn(null);
+    setDraggingId(null);
+    if (id && dragged && dragged.status !== status) {
+      void handleMove(id, status);
+    }
   }
 
   const itemsByStatus = React.useMemo(() => {
@@ -237,14 +347,28 @@ export function PipelineBoard() {
             {items.length} deals
           </span>
           <div className="flex-1" />
-          <p className="text-[10px] text-muted-foreground/50 hidden sm:block">
-            Click ⋯ on a card to move it between stages or remove it
-          </p>
+          {draggingId ? (
+            <p className="text-[10px] text-primary/70 animate-pulse">
+              Drop into a column to move the deal
+            </p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground/40 hidden sm:block">
+              Drag cards between columns · Click ⋯ for more options
+            </p>
+          )}
         </div>
       </div>
 
       {/* ── Kanban board ── */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
+      <div
+        className="flex-1 overflow-x-auto overflow-y-hidden p-4"
+        onDragLeave={(e) => {
+          // Only clear if leaving the board entirely (not entering a child)
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverColumn(null);
+          }
+        }}
+      >
         {loading ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
@@ -277,8 +401,15 @@ export function PipelineBoard() {
                 key={stage.status}
                 stage={stage}
                 items={itemsByStatus.get(stage.status) ?? []}
+                isDragOver={dragOverColumn === stage.status}
+                draggingId={draggingId}
+                onDragOver={(e) => handleDragOver(e, stage.status)}
+                onDragLeave={() => setDragOverColumn(null)}
+                onDrop={(e) => handleDrop(e, stage.status)}
                 onMove={handleMove}
                 onDelete={handleDelete}
+                onCardDragStart={setDraggingId}
+                onCardDragEnd={() => { setDraggingId(null); setDragOverColumn(null); }}
               />
             ))}
           </div>
