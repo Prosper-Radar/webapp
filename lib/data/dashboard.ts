@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { fetchDealsFromApi, type ApiDeal } from "@/lib/api/deals";
 import { getRankedParcels, type RankedParcelRow } from "@/lib/queries/parcels";
 import type { DashboardRow } from "@/lib/types/dashboard";
@@ -115,14 +116,13 @@ function mapDrizzleRow(row: RankedParcelRow): DashboardRow {
 export type DashboardPayload = {
   rows: DashboardRow[];
   source: "api" | "drizzle" | null;
+  cachedAt: number; // unix ms — shown in UI
 };
 
-/**
- * Prefers the Python FastAPI `/api/v1/deals` when `DEALSCOUT_API_URL` or
- * `NEXT_PUBLIC_API_URL` is set; otherwise reads from Postgres via Drizzle.
- * If the API is configured but fails or returns no rows, falls back to Drizzle.
- */
-export async function getDashboardPayload(): Promise<DashboardPayload> {
+/** Cache TTL: 5 minutes. Revalidated by tag "dashboard" via /api/revalidate */
+const CACHE_TTL_SECONDS = 300;
+
+async function _fetchDashboard(): Promise<DashboardPayload> {
   const hasApi =
     Boolean(process.env.DEALSCOUT_API_URL?.trim()) ||
     Boolean(process.env.NEXT_PUBLIC_API_URL?.trim());
@@ -134,6 +134,7 @@ export async function getDashboardPayload(): Promise<DashboardPayload> {
         return {
           rows: deals.map((d, i) => mapApiDeal(d, i + 1)),
           source: "api",
+          cachedAt: Date.now(),
         };
       }
     } catch {
@@ -147,11 +148,22 @@ export async function getDashboardPayload(): Promise<DashboardPayload> {
       return {
         rows: drizzleRows.map(mapDrizzleRow),
         source: "drizzle",
+        cachedAt: Date.now(),
       };
     }
   } catch {
-    return { rows: [], source: null };
+    return { rows: [], source: null, cachedAt: Date.now() };
   }
 
-  return { rows: [], source: null };
+  return { rows: [], source: null, cachedAt: Date.now() };
 }
+
+/**
+ * Cached version — revalidates every 5 min or on-demand via tag "dashboard".
+ * This prevents hammering the FastAPI + Supabase on every page load.
+ */
+export const getDashboardPayload = unstable_cache(
+  _fetchDashboard,
+  ["dashboard-payload"],
+  { revalidate: CACHE_TTL_SECONDS, tags: ["dashboard"] },
+);
