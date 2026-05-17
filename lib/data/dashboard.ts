@@ -61,6 +61,15 @@ function mapApiDeal(deal: ApiDeal, rank: number): DashboardRow {
     ],
     modelLabel: "Python API (FastAPI)",
     source: "api",
+    // Extended fields for detail drawer
+    ownerName: deal.owner_name ?? null,
+    landValue: deal.land_value ?? null,
+    lotSizeSqft: deal.lot_size_sqft ?? null,
+    zoningCode: deal.zoning_code ?? null,
+    lastSaleDate: deal.last_sale_date ?? null,
+    lastSalePrice: deal.last_sale_price ?? null,
+    parcelId: deal.parcel_id,
+    county: deal.county,
   };
 }
 
@@ -120,7 +129,7 @@ export async function getDashboardPayload(): Promise<DashboardPayload> {
 
   if (hasApi) {
     try {
-      const deals = await fetchDealsFromApi(50);
+      const deals = await fetchDealsFromApi(200);
       if (deals.length > 0) {
         return {
           rows: deals.map((d, i) => mapApiDeal(d, i + 1)),
