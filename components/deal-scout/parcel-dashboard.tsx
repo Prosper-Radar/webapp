@@ -20,6 +20,10 @@ import {
   Clock,
   FileText,
   ExternalLink,
+  MessageSquare,
+  Send,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 import { ParcelMap } from "@/components/deal-scout/parcel-map";
 import { cn } from "@/lib/utils";
@@ -139,6 +143,23 @@ function PipelineBadge({ status }: Readonly<{ status: PipelineStatus }>) {
 
 type PipelineState = Record<string, { id: string; status: PipelineStatus; notes: string | null }>;
 
+type ActivityEntry = {
+  id: string;
+  fromStatus: PipelineStatus | null;
+  toStatus: PipelineStatus;
+  note: string | null;
+  userKey: string;
+  createdAt: string;
+};
+
+function formatRelativeTime(iso: string) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function DealDetailPanel({
   row,
   pipeline,
@@ -154,6 +175,21 @@ function DealDetailPanel({
 }>) {
   const pipelineEntry = pipeline[row.id];
   const [statusChanging, setStatusChanging] = React.useState(false);
+  const [activity, setActivity] = React.useState<ActivityEntry[]>([]);
+  const [activityLoading, setActivityLoading] = React.useState(false);
+  const [noteText, setNoteText] = React.useState("");
+  const [noteSaving, setNoteSaving] = React.useState(false);
+
+  // Load activity when a pipeline entry exists
+  React.useEffect(() => {
+    if (!pipelineEntry) { setActivity([]); return; }
+    setActivityLoading(true);
+    fetch(`/api/pipeline/${pipelineEntry.id}`)
+      .then((r) => r.json())
+      .then((d: { activity?: ActivityEntry[] }) => setActivity(d.activity ?? []))
+      .catch(() => null)
+      .finally(() => setActivityLoading(false));
+  }, [pipelineEntry?.id]);
 
   async function handleStatusChange(status: PipelineStatus) {
     setStatusChanging(true);
@@ -162,7 +198,28 @@ function DealDetailPanel({
     } else {
       await onAddToPipeline(row.id, status);
     }
+    // Refresh activity log
+    if (pipelineEntry) {
+      const d = await fetch(`/api/pipeline/${pipelineEntry.id}`).then((r) => r.json()) as { activity?: ActivityEntry[] };
+      setActivity(d.activity ?? []);
+    }
     setStatusChanging(false);
+  }
+
+  async function handleSaveNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!noteText.trim() || !pipelineEntry) return;
+    setNoteSaving(true);
+    await fetch(`/api/pipeline/${pipelineEntry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: noteText.trim() }),
+    });
+    // Refresh
+    const d = await fetch(`/api/pipeline/${pipelineEntry.id}`).then((r) => r.json()) as { activity?: ActivityEntry[] };
+    setActivity(d.activity ?? []);
+    setNoteText("");
+    setNoteSaving(false);
   }
 
   return (
@@ -325,6 +382,78 @@ function DealDetailPanel({
             </dl>
           </section>
 
+          {/* ── Notes ── */}
+          {pipelineEntry ? (
+            <section>
+              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+                <MessageSquare className="size-3" />
+                Notes
+              </p>
+              <form onSubmit={handleSaveNote} className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Add a note…"
+                  className="flex-1 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+                <button
+                  type="submit"
+                  disabled={!noteText.trim() || noteSaving}
+                  className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
+                >
+                  {noteSaving ? <RefreshCw className="size-3 animate-spin" /> : <Send className="size-3" />}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
+          {/* ── Activity log ── */}
+          {pipelineEntry ? (
+            <section>
+              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+                <Clock className="size-3" />
+                Activity
+              </p>
+              {activityLoading ? (
+                <p className="text-[10px] text-muted-foreground/40">Loading…</p>
+              ) : activity.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground/40">No activity yet.</p>
+              ) : (
+                <ol className="space-y-2">
+                  {activity.map((entry) => (
+                    <li key={entry.id} className="flex gap-2 text-[10px]">
+                      <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-muted/50">
+                        {entry.fromStatus !== entry.toStatus ? (
+                          <ArrowRight className="size-2.5 text-muted-foreground/60" />
+                        ) : (
+                          <MessageSquare className="size-2.5 text-muted-foreground/60" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {entry.fromStatus !== entry.toStatus ? (
+                          <p className="text-foreground/70">
+                            {entry.fromStatus ? (
+                              <><span className="font-medium">{PIPELINE_STAGES.find(s => s.status === entry.fromStatus)?.label ?? entry.fromStatus}</span>
+                              {" → "}
+                              <span className="font-medium">{PIPELINE_STAGES.find(s => s.status === entry.toStatus)?.label ?? entry.toStatus}</span></>
+                            ) : (
+                              <span>Added as <span className="font-medium">{PIPELINE_STAGES.find(s => s.status === entry.toStatus)?.label ?? entry.toStatus}</span></span>
+                            )}
+                          </p>
+                        ) : null}
+                        {entry.note ? (
+                          <p className="text-foreground/60 italic">&ldquo;{entry.note}&rdquo;</p>
+                        ) : null}
+                        <p className="text-muted-foreground/40">{formatRelativeTime(entry.createdAt)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          ) : null}
+
           {/* ── Quick actions ── */}
           <section>
             <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
@@ -458,6 +587,38 @@ function ParcelCard({
         />
       </button>
     </div>
+  );
+}
+
+// ─── Refresh button (invalidates Next.js cache then reloads) ──────────────────
+
+function RefreshButton() {
+  const [loading, setLoading] = React.useState(false);
+  const [lastRefresh, setLastRefresh] = React.useState<string | null>(null);
+
+  async function handleRefresh() {
+    setLoading(true);
+    try {
+      await fetch("/api/revalidate", { method: "POST" });
+      setLastRefresh(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }));
+      // Reload the page to fetch fresh server-rendered data
+      globalThis.location.reload();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleRefresh}
+      disabled={loading}
+      title={lastRefresh ? `Last refresh: ${lastRefresh}` : "Refresh data from API"}
+      className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-card/50 px-2 py-1.5 text-[11px] font-medium text-muted-foreground backdrop-blur-sm hover:bg-card hover:text-foreground transition-colors disabled:opacity-50"
+    >
+      <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+      <span className="hidden sm:inline">Refresh</span>
+    </button>
   );
 }
 
@@ -605,6 +766,9 @@ export function ParcelDashboard({
             </div>
 
             <div className="flex-1" />
+
+            {/* Refresh cache */}
+            <RefreshButton />
 
             <button
               type="button"
