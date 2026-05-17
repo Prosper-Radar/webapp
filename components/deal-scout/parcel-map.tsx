@@ -11,7 +11,6 @@ import type { DashboardRow } from "@/lib/types/dashboard";
 
 export type MapPoint = Pick<DashboardRow, "id" | "lat" | "lng" | "title" | "totalScore" | "tier">;
 
-/** Mapbox Standard — bâtiments 3D + éclairage (cf. Mapbox Studio) */
 const STYLE_STANDARD = "mapbox://styles/mapbox/standard";
 
 type MapWithConfig = mapboxgl.Map & {
@@ -23,38 +22,45 @@ function applyStandardLook(map: mapboxgl.Map) {
   try {
     m.setConfigProperty?.("basemap", "lightPreset", "dusk");
     m.setConfigProperty?.("basemap", "showPointOfInterestLabels", true);
-    m.setConfigProperty?.("basemap", "showTransitLabels", true);
-  } catch {
-    /* setConfigProperty selon version GL */
-  }
+  } catch { /* version compat */ }
   map.easeTo({ pitch: 58, bearing: -30, duration: 1600 });
 }
 
-function buildMarkerEl(
-  point: MapPoint,
-  selected: boolean,
-  onClick: () => void,
-): HTMLButtonElement {
+function scoreColor(score: number): string {
+  if (score >= 80) return "#10b981";
+  if (score >= 65) return "#38bdf8";
+  if (score >= 50) return "#f59e0b";
+  return "#6b7280";
+}
+
+function buildMarkerEl(point: MapPoint, selected: boolean, onClick: () => void): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.title = point.title;
-  btn.className = cn(
-    "flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border px-2 text-xs font-semibold tabular-nums shadow-lg transition-transform outline-none select-none",
-    "bg-white/95 text-neutral-900 backdrop-blur-sm dark:bg-zinc-900/95 dark:text-zinc-50",
-    selected
-      ? "z-10 scale-110 border-blue-500 ring-2 ring-blue-500/35 dark:border-sky-400 dark:ring-sky-400/40"
-      : "border-neutral-300/90 hover:scale-105 hover:border-blue-400/60 dark:border-zinc-600/90 dark:hover:border-sky-500/50",
-    point.totalScore >= 80 &&
-      "border-emerald-500/50 text-emerald-800 dark:border-emerald-400/50 dark:text-emerald-100",
-    point.totalScore >= 65 &&
-      point.totalScore < 80 &&
-      "border-blue-500/40 text-blue-800 dark:border-sky-400/40 dark:text-sky-100",
-  );
+  const color = scoreColor(point.totalScore);
+  btn.style.cssText = `
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 2px solid ${selected ? color : "rgba(255,255,255,0.3)"};
+    background: ${selected ? color + "22" : "rgba(0,0,0,0.65)"};
+    color: ${selected ? color : "#fff"};
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4)${selected ? ", 0 0 0 3px " + color + "44" : ""};
+    transform: scale(${selected ? "1.15" : "1"});
+    transition: all 0.15s;
+    outline: none;
+    white-space: nowrap;
+  `;
   btn.textContent = String(point.totalScore);
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    onClick();
-  });
+  btn.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
   return btn;
 }
 
@@ -62,10 +68,14 @@ export function ParcelMap({
   points,
   focusedId,
   onMarkerSelect,
+  fillContainer = false,
+  resizeKey,
 }: Readonly<{
   points: MapPoint[];
   focusedId: string | null;
   onMarkerSelect: (id: string) => void;
+  fillContainer?: boolean;
+  resizeKey?: string;
 }>) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
   const { resolvedTheme } = useTheme();
@@ -102,15 +112,11 @@ export function ParcelMap({
     [plotPoints],
   );
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  React.useEffect(() => { setMounted(true); }, []);
 
   React.useEffect(() => {
     if (!fullscreen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFullscreen(false);
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -122,7 +128,6 @@ export function ParcelMap({
 
   React.useEffect(() => {
     if (!mounted || !token || !containerRef.current) return;
-
     mapboxgl.accessToken = token;
     const map = new mapboxgl.Map({
       container: containerRef.current,
@@ -135,16 +140,11 @@ export function ParcelMap({
     });
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
     mapRef.current = map;
-
     map.once("load", () => {
       setMapLoaded(true);
-      if (styleUrl.includes("standard")) {
-        applyStandardLook(map);
-      } else {
-        map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
-      }
+      if (styleUrl.includes("standard")) applyStandardLook(map);
+      else map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
     });
-
     return () => {
       setMapLoaded(false);
       lastBoundsKey.current = "";
@@ -155,23 +155,28 @@ export function ParcelMap({
     };
   }, [mounted, token, styleUrl]);
 
+  // Resize on fullscreen toggle
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
-    requestAnimationFrame(() => {
-      map.resize();
-    });
+    requestAnimationFrame(() => map.resize());
   }, [fullscreen, mapLoaded]);
 
+  // Resize when the containing panel opens/closes (after CSS transition)
+  React.useEffect(() => {
+    if (!resizeKey) return;
+    const timer = setTimeout(() => {
+      mapRef.current?.resize();
+    }, 310); // slightly after the 300ms panel CSS transition
+    return () => clearTimeout(timer);
+  }, [resizeKey]);
+
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
-
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-
     if (plotPoints.length === 0) return;
-
     for (const p of plotPoints) {
       const el = buildMarkerEl(p, focusedId === p.id, () => onMarkerSelect(p.id));
       const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" })
@@ -179,18 +184,14 @@ export function ParcelMap({
         .addTo(map);
       markersRef.current.push(marker);
     }
-
     if (boundsKey !== lastBoundsKey.current) {
       lastBoundsKey.current = boundsKey;
-      const targetZoom = view3d ? 15.6 : 13;
       if (plotPoints.length === 1) {
-        map.jumpTo({ center: [plotPoints[0].lng, plotPoints[0].lat], zoom: targetZoom });
+        map.jumpTo({ center: [plotPoints[0].lng, plotPoints[0].lat], zoom: view3d ? 15.6 : 13 });
       } else {
         const b = new mapboxgl.LngLatBounds();
-        for (const p of plotPoints) {
-          b.extend([p.lng, p.lat]);
-        }
-        map.fitBounds(b, { padding: fullscreen ? 48 : 72, maxZoom: view3d ? 17.2 : 13, duration: 0 });
+        for (const p of plotPoints) b.extend([p.lng, p.lat]);
+        map.fitBounds(b, { padding: fullscreen ? 48 : 60, maxZoom: view3d ? 16 : 13, duration: 0 });
       }
     }
   }, [mapLoaded, boundsKey, focusedId, plotPoints, onMarkerSelect, view3d, fullscreen]);
@@ -200,33 +201,23 @@ export function ParcelMap({
     if (!map || !mapLoaded || plotPoints.length === 0) return;
     const t = plotPoints.find((p) => p.id === focusedId);
     if (!t) return;
-    const zoomTarget = view3d ? Math.max(map.getZoom(), 15.4) : Math.max(map.getZoom(), 13);
     map.easeTo({
       center: [t.lng, t.lat],
-      zoom: zoomTarget,
+      zoom: view3d ? Math.max(map.getZoom(), 15.4) : Math.max(map.getZoom(), 13),
       duration: 550,
     });
   }, [focusedId, mapLoaded, plotPoints, view3d]);
 
-  const mapHeightClass = fullscreen ? "h-[100dvh] min-h-[100dvh]" : "h-[min(44vh,440px)]";
-  const shellHeightClass = fullscreen ? "min-h-[100dvh]" : "";
+  const fallbackH = fillContainer ? "h-full" : "h-[min(44vh,440px)]";
 
-  if (!mounted) {
-    return (
-      <div
-        className="h-[min(44vh,440px)] w-full animate-pulse rounded-2xl border border-border/80 bg-muted/20"
-        aria-hidden
-      />
-    );
-  }
+  if (!mounted) return <div className={cn(fallbackH, "w-full animate-pulse bg-muted/20")} aria-hidden />;
 
   if (!token) {
     return (
-      <div className="flex h-[min(44vh,440px)] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 bg-muted/15 px-6 text-center">
-        <p className="text-sm font-medium text-foreground">Mapbox</p>
-        <p className="max-w-sm text-xs text-muted-foreground">
-          Ajoute <span className="font-mono">NEXT_PUBLIC_MAPBOX_TOKEN</span> dans{" "}
-          <span className="font-mono">.env.local</span> pour afficher la carte.
+      <div className={cn(fallbackH, "flex w-full flex-col items-center justify-center gap-2 bg-muted/15 px-6 text-center")}>
+        <p className="text-sm font-medium">Mapbox token manquant</p>
+        <p className="text-xs text-muted-foreground max-w-xs">
+          Ajoute <code className="font-mono text-[11px]">NEXT_PUBLIC_MAPBOX_TOKEN</code> dans <code>.env</code>.
         </p>
       </div>
     );
@@ -234,25 +225,33 @@ export function ParcelMap({
 
   if (plotPoints.length === 0) {
     return (
-      <div className="flex h-[min(44vh,440px)] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-border/80 bg-muted/10 px-6 text-center">
-        <p className="text-sm font-medium text-foreground">Pas de coordonnées</p>
-        <p className="max-w-sm text-xs text-muted-foreground">
-          Les parcelles n’ont pas de lat/lng (API sans géométrie, ou données incomplètes).
+      <div className={cn(fallbackH, "flex w-full flex-col items-center justify-center gap-2 bg-muted/10 px-6 text-center")}>
+        <p className="text-sm font-medium">Aucune coordonnee</p>
+        <p className="text-xs text-muted-foreground max-w-xs">
+          Les parcelles n&apos;ont pas encore de lat/lng.
         </p>
       </div>
     );
   }
 
+  const mapHeightClass = fullscreen
+    ? "h-[100dvh] min-h-[100dvh]"
+    : fillContainer
+    ? "h-full"
+    : "h-[min(44vh,440px)]";
+  const shellHeightClass = fullscreen ? "min-h-[100dvh]" : fillContainer ? "h-full" : "";
+
   return (
     <div
       className={cn(
-        "relative overflow-hidden border border-border/80 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)] dark:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)]",
-        fullscreen && "fixed inset-0 z-[300] rounded-none border-0 shadow-none",
-        !fullscreen && "rounded-2xl",
+        "relative overflow-hidden",
+        fullscreen && "fixed inset-0 z-[300]",
+        !fullscreen && !fillContainer && "rounded-2xl border border-border/80",
         shellHeightClass,
       )}
     >
-      {fullscreen ? (
+      {/* Fullscreen close */}
+      {fullscreen && (
         <button
           type="button"
           onClick={() => setFullscreen(false)}
@@ -260,61 +259,45 @@ export function ParcelMap({
         >
           <X className="size-3.5" aria-hidden />
           Fermer
-          <span className="hidden opacity-70 sm:inline">(Échap)</span>
+          <span className="hidden opacity-70 sm:inline">(Echap)</span>
         </button>
-      ) : null}
+      )}
 
-      <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col gap-1.5">
+      {/* Map controls */}
+      <div className="pointer-events-none absolute left-2 top-16 z-10 flex flex-col gap-1.5">
         <button
           type="button"
           onClick={() => setFullscreen((v) => !v)}
           className="pointer-events-auto inline-flex items-center gap-1 rounded-xl border border-black/10 bg-white/85 px-2.5 py-1.5 text-[11px] font-medium text-neutral-800 shadow-sm backdrop-blur-md dark:border-white/15 dark:bg-zinc-900/80 dark:text-zinc-100"
         >
-          {fullscreen ? (
-            <>
-              <Minimize2 className="size-3.5 opacity-80" aria-hidden />
-              Réduire
-            </>
-          ) : (
-            <>
-              <Maximize2 className="size-3.5 opacity-80" aria-hidden />
-              Plein écran
-            </>
-          )}
+          {fullscreen ? <Minimize2 className="size-3.5 opacity-80" /> : <Maximize2 className="size-3.5 opacity-80" />}
+          {fullscreen ? "Reduire" : "Plein ecran"}
         </button>
         <button
           type="button"
           onClick={() => setView3d((v) => !v)}
           className="pointer-events-auto inline-flex items-center gap-1 rounded-xl border border-black/10 bg-white/85 px-2.5 py-1.5 text-[11px] font-medium text-neutral-800 shadow-sm backdrop-blur-md dark:border-white/15 dark:bg-zinc-900/80 dark:text-zinc-100"
         >
-          <Box className="size-3.5 opacity-80" aria-hidden />
+          <Box className="size-3.5 opacity-80" />
           {view3d ? "Vue 2D" : "Vue 3D"}
         </button>
         <button
           type="button"
-          onClick={() => {
-            const map = mapRef.current;
-            if (!map) return;
-            map.easeTo({ bearing: 0, duration: 500 });
-          }}
+          onClick={() => mapRef.current?.easeTo({ bearing: 0, duration: 500 })}
           className="pointer-events-auto inline-flex items-center gap-1 rounded-xl border border-black/10 bg-white/85 px-2.5 py-1.5 text-[11px] font-medium text-neutral-800 shadow-sm backdrop-blur-md dark:border-white/15 dark:bg-zinc-900/80 dark:text-zinc-100"
         >
-          <Compass className="size-3.5 opacity-80" aria-hidden />
+          <Compass className="size-3.5 opacity-80" />
           Nord
         </button>
       </div>
 
       <div ref={containerRef} className={cn("w-full", mapHeightClass)} />
 
-      <p
-        className={cn(
-          "pointer-events-none absolute text-[10px] text-muted-foreground/80",
-          fullscreen ? "bottom-4 left-4" : "bottom-2 left-3",
-        )}
-      >
-        {plotPoints.length} repères ·{" "}
-        {view3d ? "Mapbox Standard · crépuscule" : `Carte ${mapTheme} · plat`} ·{" "}
-        {fullscreen ? "plein écran" : "vue intégrée"}
+      <p className={cn(
+        "pointer-events-none absolute text-[10px] text-white/60",
+        fullscreen ? "bottom-4 left-4" : "bottom-2 left-3",
+      )}>
+        {plotPoints.length} markers &middot; {view3d ? "3D Standard" : `${mapTheme} flat`}
       </p>
     </div>
   );
