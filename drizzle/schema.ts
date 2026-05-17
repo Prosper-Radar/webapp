@@ -111,9 +111,38 @@ export const dealPipeline = pgTable(
   (t) => [uniqueIndex("pipeline_parcel_user_uidx").on(t.parcelId, t.addedBy)],
 );
 
-export const dealPipelineRelations = relations(dealPipeline, ({ one }) => ({
+export const dealPipelineRelations = relations(dealPipeline, ({ one, many }) => ({
   parcel: one(parcels, {
     fields: [dealPipeline.parcelId],
+    references: [parcels.id],
+  }),
+  activities: many(pipelineActivity),
+}));
+
+// ── Pipeline activity log ──────────────────────────────────────────────────────
+
+export const pipelineActivity = pgTable("pipeline_activity", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  pipelineId: uuid("pipeline_id")
+    .notNull()
+    .references(() => dealPipeline.id, { onDelete: "cascade" }),
+  parcelId: uuid("parcel_id")
+    .notNull()
+    .references(() => parcels.id, { onDelete: "cascade" }),
+  fromStatus: text("from_status").$type<PipelineStatus | null>(),
+  toStatus: text("to_status").$type<PipelineStatus>().notNull(),
+  note: text("note"),
+  userKey: text("user_key").notNull().default("demo"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const pipelineActivityRelations = relations(pipelineActivity, ({ one }) => ({
+  pipeline: one(dealPipeline, {
+    fields: [pipelineActivity.pipelineId],
+    references: [dealPipeline.id],
+  }),
+  parcel: one(parcels, {
+    fields: [pipelineActivity.parcelId],
     references: [parcels.id],
   }),
 }));
