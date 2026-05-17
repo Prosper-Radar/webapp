@@ -10,6 +10,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+export type PipelineStatus =
+  | "spotted"
+  | "reviewing"
+  | "loi_submitted"
+  | "under_contract"
+  | "closed"
+  | "dead";
+
 export type ScoreBreakdown = {
   momentum: number;
   location: number;
@@ -80,6 +88,32 @@ export const dealScoresRelations = relations(dealScores, ({ one }) => ({
 export const watchlistRelations = relations(watchlist, ({ one }) => ({
   parcel: one(parcels, {
     fields: [watchlist.parcelId],
+    references: [parcels.id],
+  }),
+}));
+
+// ── Deal pipeline ──────────────────────────────────────────────────────────
+
+export const dealPipeline = pgTable(
+  "deal_pipeline",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    parcelId: uuid("parcel_id")
+      .notNull()
+      .references(() => parcels.id, { onDelete: "cascade" }),
+    status: text("status").$type<PipelineStatus>().notNull().default("spotted"),
+    notes: text("notes"),
+    assignedTo: text("assigned_to"),
+    addedBy: text("added_by").notNull().default("demo"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("pipeline_parcel_user_uidx").on(t.parcelId, t.addedBy)],
+);
+
+export const dealPipelineRelations = relations(dealPipeline, ({ one }) => ({
+  parcel: one(parcels, {
+    fields: [dealPipeline.parcelId],
     references: [parcels.id],
   }),
 }));
