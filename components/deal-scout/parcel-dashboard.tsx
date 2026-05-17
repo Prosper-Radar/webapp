@@ -21,7 +21,6 @@ import {
   FileText,
   ExternalLink,
   MessageSquare,
-  Send,
   RefreshCw,
   ArrowRight,
   Phone,
@@ -169,6 +168,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
     setRan(true);
     try {
       const params = new URLSearchParams({ dealId });
+      if (ownerName) params.set("ownerName", ownerName);
       if (refresh) params.set("refresh", "true");
       const res = await fetch(`/api/contact?${params.toString()}`);
       const data = await res.json() as ContactResult;
@@ -366,8 +366,6 @@ function DealDetailPanel({
   const [statusChanging, setStatusChanging] = React.useState(false);
   const [activity, setActivity] = React.useState<ActivityEntry[]>([]);
   const [activityLoading, setActivityLoading] = React.useState(false);
-  const [noteText, setNoteText] = React.useState("");
-  const [noteSaving, setNoteSaving] = React.useState(false);
 
   // Load activity when a pipeline entry exists
   React.useEffect(() => {
@@ -395,21 +393,6 @@ function DealDetailPanel({
     setStatusChanging(false);
   }
 
-  async function handleSaveNote(e: React.FormEvent) {
-    e.preventDefault();
-    if (!noteText.trim() || !pipelineEntry) return;
-    setNoteSaving(true);
-    await fetch(`/api/pipeline/${pipelineEntry.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: noteText.trim() }),
-    });
-    // Refresh
-    const d = await fetch(`/api/pipeline/${pipelineEntry.id}`).then((r) => r.json()) as { activity?: ActivityEntry[] };
-    setActivity(d.activity ?? []);
-    setNoteText("");
-    setNoteSaving(false);
-  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -571,31 +554,6 @@ function DealDetailPanel({
             </dl>
           </section>
 
-          {/* ── Notes ── */}
-          {pipelineEntry ? (
-            <section>
-              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
-                <MessageSquare className="size-3" />
-                Notes
-              </p>
-              <form onSubmit={handleSaveNote} className="flex gap-1.5">
-                <input
-                  type="text"
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="Add a note…"
-                  className="flex-1 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/40"
-                />
-                <button
-                  type="submit"
-                  disabled={!noteText.trim() || noteSaving}
-                  className="flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
-                >
-                  {noteSaving ? <RefreshCw className="size-3 animate-spin" /> : <Send className="size-3" />}
-                </button>
-              </form>
-            </section>
-          ) : null}
 
           {/* ── Activity log ── */}
           {pipelineEntry ? (
