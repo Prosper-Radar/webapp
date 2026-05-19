@@ -23,8 +23,8 @@ export type DashboardRow = {
   /** WGS84 — map markers when both set */
   lat: number | null;
   lng: number | null;
-  onWatchlist: boolean;
-  watchlistNote: string | null;
+  inPipeline: boolean;
+  pipelineNote: string | null;
   pillars: DashboardScorePillar[];
   facts: DashboardFact[];
   modelLabel: string;
@@ -39,7 +39,6 @@ export type DashboardRow = {
   buildingValue?: number | null;
   totalValue?: number | null;
   lotSizeSqft?: number | null;
-  acreage?: number | null;
   zoningCode?: string | null;
   lastSaleDate?: string | null;
   lastSalePrice?: number | null;
@@ -57,15 +56,20 @@ export type PipelineItem = {
   createdAt: string;
   updatedAt: string;
   // denormalized from join
-  address: string;
-  folio: string;
+  address: string | null;
+  parcelCode: string | null;
   county: string;
-  lat: number | null;
-  lng: number | null;
-  zoning: string | null;
-  acreage: number | null;
+  zoningCode: string | null;
+  lotSizeSqft: number | null;
   totalScore: number;
-  breakdown: Record<string, number>;
+  tier: string | null;
+  waterfrontScore: number | null;
+  zoningScore: number | null;
+  priceScore: number | null;
+  lotSizeScore: number | null;
+  populationScore: number | null;
+  trafficScore: number | null;
+  recencyScore: number | null;
   modelVersion: string;
 };
 
