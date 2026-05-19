@@ -38,8 +38,8 @@ function mapApiDeal(deal: ApiDeal, rank: number): DashboardRow {
     tier: deal.tier ?? null,
     lat,
     lng,
-    onWatchlist: false,
-    watchlistNote: null,
+    inPipeline: false,
+    pipelineNote: null,
     pillars,
     facts: [
       { label: "County", value: deal.county },
@@ -75,41 +75,48 @@ function mapApiDeal(deal: ApiDeal, rank: number): DashboardRow {
 }
 
 function mapDrizzleRow(row: RankedParcelRow): DashboardRow {
+  const pillars: { label: string; value: number }[] = [
+    ...(row.waterfrontScore != null ? [{ label: "Waterfront", value: row.waterfrontScore }] : []),
+    ...(row.zoningScore != null ? [{ label: "Zoning", value: row.zoningScore }] : []),
+    ...(row.priceScore != null ? [{ label: "Price", value: row.priceScore }] : []),
+    ...(row.lotSizeScore != null ? [{ label: "Lot size", value: row.lotSizeScore }] : []),
+    ...(row.populationScore != null ? [{ label: "Population", value: row.populationScore }] : []),
+    ...(row.trafficScore != null ? [{ label: "Traffic", value: row.trafficScore }] : []),
+    ...(row.recencyScore != null ? [{ label: "Recency", value: row.recencyScore }] : []),
+  ];
+
   return {
     rank: row.rank,
     id: row.parcelId,
-    title: row.addressLine,
-    subtitlePrimary: `${row.city}, FL ${row.zip}`,
-    subtitleSecondary: row.folio,
+    title: row.address?.trim() || row.parcelId,
+    subtitlePrimary: row.county,
+    subtitleSecondary: row.parcelId,
     totalScore: row.totalScore,
-    tier: null,
-    lat: row.lat,
-    lng: row.lng,
-    onWatchlist: row.onWatchlist,
-    watchlistNote: row.watchlistNote,
-    pillars: [
-      { label: "Momentum", value: row.breakdown.momentum },
-      { label: "Location", value: row.breakdown.location },
-      { label: "Value", value: row.breakdown.value },
-      { label: "Liquidity", value: row.breakdown.liquidity },
-    ],
+    tier: row.tier,
+    lat: null,
+    lng: null,
+    inPipeline: row.inPipeline,
+    pipelineNote: row.pipelineNote,
+    pillars,
     facts: [
-      { label: "Zoning", value: row.zoning ?? "—" },
+      { label: "Zoning", value: row.zoningCode ?? "—" },
       {
-        label: "Acreage",
-        value: row.acreage === null ? "—" : row.acreage.toFixed(4),
+        label: "Lot (sq ft)",
+        value: row.lotSizeSqft != null ? Math.round(row.lotSizeSqft).toLocaleString() : "—",
       },
-      {
-        label: "Coordinates",
-        value: `${row.lat.toFixed(4)}, ${row.lng.toFixed(4)}`,
-      },
+      { label: "Owner", value: row.ownerName?.trim() || "—" },
       { label: "Model", value: row.modelVersion },
-      ...(row.watchlistNote
-        ? [{ label: "Watchlist note", value: row.watchlistNote }]
-        : []),
+      ...(row.pipelineNote ? [{ label: "Pipeline note", value: row.pipelineNote }] : []),
     ],
     modelLabel: row.modelVersion,
     source: "drizzle",
+    parcelId: row.parcelId,
+    county: row.county,
+    ownerName: row.ownerName,
+    landValue: row.landValue,
+    lotSizeSqft: row.lotSizeSqft,
+    zoningCode: row.zoningCode,
+    lastSaleDate: row.lastSaleDate,
   };
 }
 
