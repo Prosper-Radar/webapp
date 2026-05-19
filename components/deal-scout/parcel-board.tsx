@@ -139,9 +139,9 @@ export function ParcelBoard({
                           Tier {row.tier}
                         </span>
                       ) : null}
-                      {row.onWatchlist ? (
+                      {row.inPipeline ? (
                         <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
-                          Watchlist
+                          Pipeline
                         </span>
                       ) : null}
                     </div>
@@ -172,7 +172,7 @@ export function ParcelBoard({
                     <span className="text-[10px] text-muted-foreground sm:hidden">score</span>
                   </div>
                   <div className="hidden text-center text-xs text-muted-foreground sm:block">
-                    {row.onWatchlist ? "●" : "—"}
+                    {row.inPipeline ? "●" : "—"}
                   </div>
                   <div className="flex items-center justify-end pt-1 sm:pt-0">
                     <ChevronDown

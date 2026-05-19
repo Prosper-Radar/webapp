@@ -202,7 +202,15 @@ function DealDetailPanel({
     }
   }
 
-  const breakdown = Object.entries(item.breakdown ?? {});
+  const breakdown: [string, number][] = [
+    ...(item.waterfrontScore != null ? [["Waterfront", item.waterfrontScore] as [string, number]] : []),
+    ...(item.zoningScore != null ? [["Zoning", item.zoningScore] as [string, number]] : []),
+    ...(item.priceScore != null ? [["Price", item.priceScore] as [string, number]] : []),
+    ...(item.lotSizeScore != null ? [["Lot size", item.lotSizeScore] as [string, number]] : []),
+    ...(item.populationScore != null ? [["Population", item.populationScore] as [string, number]] : []),
+    ...(item.trafficScore != null ? [["Traffic", item.trafficScore] as [string, number]] : []),
+    ...(item.recencyScore != null ? [["Recency", item.recencyScore] as [string, number]] : []),
+  ];
 
   const fmt = (v: number | null | undefined, unit?: string) => {
     if (v == null) return "—";
@@ -231,9 +239,9 @@ function DealDetailPanel({
                 <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60">
                   <MapPin className="size-2.5" />{item.county}
                 </span>
-                {item.folio ? (
+                {item.parcelCode ? (
                   <span className="rounded-md border border-border/40 bg-muted/30 px-1.5 py-px text-[9px] font-mono text-muted-foreground/50">
-                    {item.folio}
+                    {item.parcelCode}
                   </span>
                 ) : null}
               </div>
@@ -311,9 +319,9 @@ function DealDetailPanel({
               </p>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {[
-                  ["Acreage", item.acreage != null ? `${item.acreage.toFixed(2)} ac` : null],
-                  ["Zoning", item.zoning],
-                  ["Folio", item.folio],
+                  ["Lot (sq ft)", item.lotSizeSqft != null ? Math.round(Number(item.lotSizeSqft)).toLocaleString() : null],
+                  ["Zoning", item.zoningCode],
+                  ["Parcel ID", item.parcelCode],
                   ["County", item.county],
                   ["Added", new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })],
                   ["Updated", new Date(item.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })],
@@ -522,8 +530,8 @@ function DealCard({
               <MapPin className="size-2 opacity-60" />{item.county}
             </span>
           </div>
-          {item.zoning ? (
-            <p className="mt-0.5 text-[9px] text-muted-foreground/50">Zoning: {item.zoning}</p>
+          {item.zoningCode ? (
+            <p className="mt-0.5 text-[9px] text-muted-foreground/50">Zoning: {item.zoningCode}</p>
           ) : null}
           {/* Stage indicator */}
           {currentStage && (
