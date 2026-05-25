@@ -20,7 +20,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "DealScout — quick tour",
-    description: "4 arrêts · 20 secondes. Appuie sur Échap pour passer.",
+    description: "3 arrêts · 15 secondes. Appuie sur Échap pour passer.",
     side: "center",
   },
   {
@@ -40,12 +40,6 @@ const STEPS: Step[] = [
     side: "left",
     title: "Liste des deals",
     description: "Clique sur un deal pour ouvrir le score détaillé, les infos propriétaire et le skip trace.",
-  },
-  {
-    target: "pipeline-nav",
-    side: "right",
-    title: "Pipeline",
-    description: "6 étapes de Spotted à Closed. Glisse les cartes ou utilise le menu ···.",
   },
 ];
 
