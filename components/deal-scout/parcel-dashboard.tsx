@@ -44,9 +44,8 @@ function tierColor(tier: string | null) {
 }
 
 function scoreColor(score: number) {
-  if (score >= 80) return "#10b981";
-  if (score >= 65) return "#38bdf8";
-  if (score >= 50) return "#f59e0b";
+  if (score >= 70) return "#10b981";
+  if (score >= 45) return "#38bdf8";
   return "#6b7280";
 }
 
@@ -113,7 +112,7 @@ function ScoreRing({ value, size = 56 }: Readonly<{ value: number; size?: number
 function ScoreBar({ label, value }: Readonly<{ label: string; value: number }>) {
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{label}</span>
         <span className="tabular-nums font-medium text-foreground/70">{value}</span>
       </div>
@@ -133,7 +132,7 @@ function PipelineBadge({ status }: Readonly<{ status: PipelineStatus }>) {
   const stage = PIPELINE_STAGES.find((s) => s.status === status);
   return (
     <span className={cn(
-      "inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+      "inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide",
       pipelineStatusColor(status),
     )}>
       <CheckCircle2 className="size-2.5" />
@@ -183,7 +182,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
           <Phone className="size-3" />
           Owner Contact
         </p>
@@ -191,7 +190,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
           <button
             type="button"
             onClick={() => runSkipTrace(true)}
-            className="flex items-center gap-1 text-[9px] text-muted-foreground/50 hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
           >
             <RefreshCw className="size-2.5" /> Refresh
           </button>
@@ -202,15 +201,15 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
         /* Pre-run state */
         <div className="rounded-xl border border-dashed border-border/60 p-3 text-center">
           {ownerName ? (
-            <p className="mb-2 truncate text-[10px] font-medium text-foreground/70">{ownerName}</p>
+            <p className="mb-2 truncate text-xs font-medium text-foreground/70">{ownerName}</p>
           ) : null}
-          <p className="mb-3 text-[10px] text-muted-foreground/50">
+          <p className="mb-3 text-xs text-muted-foreground/50">
             Search public records & Sunbiz for owner info
           </p>
           <button
             type="button"
             onClick={() => runSkipTrace()}
-            className="mx-auto flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+            className="mx-auto flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
           >
             <Globe className="size-3" />
             Run Skip Trace
@@ -218,7 +217,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
         </div>
       ) : loading ? (
         /* Loading */
-        <div className="flex items-center justify-center gap-2 py-4 text-[10px] text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
           Searching Sunbiz & public records…
         </div>
@@ -229,13 +228,13 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
           {contact.found ? (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5 space-y-1.5">
               {contact.entity_type ? (
-                <div className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground/60">Type</span>
                   <span className="font-medium text-foreground/80">{contact.entity_type}</span>
                 </div>
               ) : null}
               {contact.entity_status ? (
-                <div className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground/60">Status</span>
                   <span className={cn("font-semibold",
                     contact.entity_status === "ACTIVE" ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
@@ -245,20 +244,20 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
                 </div>
               ) : null}
               {contact.filing_date ? (
-                <div className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground/60">Filed</span>
                   <span className="font-medium text-foreground/80">{contact.filing_date}</span>
                 </div>
               ) : null}
               {contact.registered_agent ? (
-                <div className="text-[10px]">
+                <div className="text-xs">
                   <span className="text-muted-foreground/60">Registered agent: </span>
                   <span className="font-medium text-foreground/80">{contact.registered_agent}</span>
                 </div>
               ) : null}
             </div>
           ) : (
-            <p className="rounded-lg bg-muted/30 px-2.5 py-2 text-[10px] text-muted-foreground/60">
+            <p className="rounded-lg bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground/60">
               {contact.reason ?? "No entity data found in public records."}
             </p>
           )}
@@ -266,15 +265,15 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
           {/* Officers */}
           {contact.officers && contact.officers.length > 0 ? (
             <div>
-              <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">Officers / Contacts</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50">Officers / Contacts</p>
               <div className="space-y-1.5">
                 {contact.officers.map((o) => (
                   <div key={`${o.name}-${o.title}`} className="flex items-start gap-2 rounded-lg border border-border/40 bg-card/40 px-2.5 py-2">
                     <User className="mt-0.5 size-3 shrink-0 text-muted-foreground/40" />
-                    <div className="min-w-0 text-[10px]">
+                    <div className="min-w-0 text-xs">
                       <p className="font-medium text-foreground/80 truncate">{o.name}</p>
                       {o.title ? <p className="text-muted-foreground/60">{o.title}</p> : null}
-                      {o.address ? <p className="text-muted-foreground/50 text-[9px] truncate">{o.address}</p> : null}
+                      {o.address ? <p className="text-muted-foreground/50 text-[11px] truncate">{o.address}</p> : null}
                     </div>
                   </div>
                 ))}
@@ -284,7 +283,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
 
           {/* Contact tip */}
           {contact.contact_tip ? (
-            <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-[10px] text-amber-700 dark:text-amber-300">
+            <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-300">
               💡 {contact.contact_tip}
             </p>
           ) : null}
@@ -292,7 +291,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
           {/* Search links */}
           {contact.links && Object.keys(contact.links).length > 0 ? (
             <div>
-              <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50">
                 {contact.is_individual ? "Find individual" : "Find company contact"}
               </p>
               <div className="grid grid-cols-2 gap-1.5">
@@ -305,7 +304,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn(
-                        "flex items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2 py-1.5 text-[10px] font-medium hover:bg-card/70 transition-colors",
+                        "flex items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2 py-1.5 text-xs font-medium hover:bg-card/70 transition-colors",
                         meta?.color ?? "text-foreground/70",
                       )}
                     >
@@ -319,7 +318,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
             </div>
           ) : null}
 
-          <p className="text-center text-[9px] text-muted-foreground/30">
+          <p className="text-center text-[11px] text-muted-foreground/30">
             Source: {contact.source ?? "public records"} · {contact.fetched_at ? new Date(contact.fetched_at).toLocaleDateString() : "just now"}
           </p>
         </div>
@@ -407,7 +406,7 @@ function DealDetailPanel({
               </h2>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 {row.tier ? (
-                  <span className={cn("inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide", tierColor(row.tier))}>
+                  <span className={cn("inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide", tierColor(row.tier))}>
                     Tier {row.tier}
                   </span>
                 ) : null}
@@ -415,10 +414,10 @@ function DealDetailPanel({
                   <PipelineBadge status={pipelineEntry.status} />
                 ) : null}
               </div>
-              <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="size-2.5 shrink-0" />
                 {row.county ?? row.subtitlePrimary}
-                {row.parcelId ? <span className="font-mono text-[9px] opacity-60 ml-1">{row.parcelId}</span> : null}
+                {row.parcelId ? <span className="font-mono text-[11px] opacity-60 ml-1">{row.parcelId}</span> : null}
               </p>
             </div>
           </div>
@@ -438,7 +437,7 @@ function DealDetailPanel({
 
           {/* ── Pipeline CTA ── */}
           <section>
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
               <KanbanSquare className="size-3" />
               Pipeline Status
             </p>
@@ -452,7 +451,7 @@ function DealDetailPanel({
                     disabled={statusChanging}
                     onClick={() => handleStatusChange(stage.status)}
                     className={cn(
-                      "rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-all",
+                      "rounded-lg border px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
                       isActive
                         ? pipelineStatusColor(stage.status)
                         : "border-border/50 bg-transparent text-muted-foreground hover:bg-muted/30",
@@ -466,12 +465,12 @@ function DealDetailPanel({
               })}
             </div>
             {pipelineEntry ? (
-              <p className="mt-1.5 text-[10px] text-muted-foreground/50 flex items-center gap-1">
+              <p className="mt-1.5 text-xs text-muted-foreground/50 flex items-center gap-1">
                 <Clock className="size-2.5" />
                 In pipeline · click a status to change it
               </p>
             ) : (
-              <p className="mt-1.5 text-[10px] text-muted-foreground/50">
+              <p className="mt-1.5 text-xs text-muted-foreground/50">
                 Click a stage to add this deal to your pipeline
               </p>
             )}
@@ -480,7 +479,7 @@ function DealDetailPanel({
           {/* ── Score breakdown ── */}
           {row.pillars.length > 0 ? (
             <section>
-              <p className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
                 <TrendingUp className="size-3" />
                 Score Breakdown
               </p>
@@ -494,11 +493,11 @@ function DealDetailPanel({
 
           {/* ── Financial data ── */}
           <section>
-            <p className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+            <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
               <DollarSign className="size-3" />
               Financials
             </p>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[10px]">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
               <FactItem icon={<DollarSign className="size-2.5" />} label="Land Value" value={fmt$(row.landValue)} />
               <FactItem icon={<DollarSign className="size-2.5" />} label="Building Value" value={fmt$(row.buildingValue)} />
               <FactItem icon={<DollarSign className="size-2.5" />} label="Total Value" value={fmt$(row.totalValue ?? (row.landValue != null ? (row.landValue + (row.buildingValue ?? 0)) : null))} />
@@ -509,11 +508,11 @@ function DealDetailPanel({
           {/* ── Sale history ── */}
           {(row.lastSaleDate || row.lastSalePrice) ? (
             <section>
-              <p className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
                 <Calendar className="size-3" />
                 Last Transaction
               </p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[10px]">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
                 <FactItem icon={<Calendar className="size-2.5" />} label="Sale Date" value={fmtDate(row.lastSaleDate)} />
                 <FactItem icon={<DollarSign className="size-2.5" />} label="Sale Price" value={fmt$(row.lastSalePrice)} />
               </dl>
@@ -523,11 +522,11 @@ function DealDetailPanel({
           {/* ── Owner info ── */}
           {row.ownerName ? (
             <section>
-              <p className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
                 <User className="size-3" />
                 Owner Info
               </p>
-              <dl className="space-y-2 text-[10px]">
+              <dl className="space-y-2 text-xs">
                 <FactItem icon={<User className="size-2.5" />} label="Owner" value={row.ownerName} wide />
                 {row.ownerAddress ? (
                   <FactItem icon={<MapPin className="size-2.5" />} label="Mailing Address" value={row.ownerAddress} wide />
@@ -538,11 +537,11 @@ function DealDetailPanel({
 
           {/* ── Parcel details ── */}
           <section>
-            <p className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+            <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
               <FileText className="size-3" />
               Parcel Details
             </p>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[10px]">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
               <FactItem icon={<FileText className="size-2.5" />} label="Zoning" value={row.zoningCode ?? "—"} />
               <FactItem icon={<MapPin className="size-2.5" />} label="County" value={row.county ?? row.subtitlePrimary} />
               {row.lat != null && row.lng != null ? (
@@ -558,18 +557,18 @@ function DealDetailPanel({
           {/* ── Activity log ── */}
           {pipelineEntry ? (
             <section>
-              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
                 <Clock className="size-3" />
                 Activity
               </p>
               {activityLoading ? (
-                <p className="text-[10px] text-muted-foreground/40">Loading…</p>
+                <p className="text-xs text-muted-foreground/40">Loading…</p>
               ) : activity.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground/40">No activity yet.</p>
+                <p className="text-xs text-muted-foreground/40">No activity yet.</p>
               ) : (
                 <ol className="space-y-2">
                   {activity.map((entry) => (
-                    <li key={entry.id} className="flex gap-2 text-[10px]">
+                    <li key={entry.id} className="flex gap-2 text-xs">
                       <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-muted/50">
                         {entry.fromStatus !== entry.toStatus ? (
                           <ArrowRight className="size-2.5 text-muted-foreground/60" />
@@ -606,18 +605,10 @@ function DealDetailPanel({
 
           {/* ── Quick actions ── */}
           <section>
-            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
               Quick Actions
             </p>
             <div className="flex flex-col gap-2">
-              <a
-                href="/pipeline"
-                className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-[11px] font-medium text-foreground/80 hover:bg-card/70 transition-colors"
-              >
-                <KanbanSquare className="size-3.5 text-muted-foreground" />
-                View Pipeline
-                <ExternalLink className="ml-auto size-3 text-muted-foreground/40" />
-              </a>
               {row.lat != null && row.lng != null ? (
                 <a
                   href={`https://maps.google.com/?q=${row.lat},${row.lng}`}
@@ -645,7 +636,7 @@ function FactItem({ icon, label, value, wide, mono }: Readonly<{ icon: React.Rea
         {icon}
         {label}
       </dt>
-      <dd className={cn("font-medium text-foreground/80", mono && "font-mono text-[9px] text-muted-foreground/80")}>
+      <dd className={cn("font-medium text-foreground/80", mono && "font-mono text-[11px] text-muted-foreground/80")}>
         {value}
       </dd>
     </div>
@@ -699,7 +690,7 @@ function ParcelCard({
               {row.title}
             </span>
             {row.tier ? (
-              <span className={cn("inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide", tierColor(row.tier))}>
+              <span className={cn("inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide", tierColor(row.tier))}>
                 {row.tier}
               </span>
             ) : null}
@@ -708,12 +699,12 @@ function ParcelCard({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="size-2.5 shrink-0 opacity-60" />
             <span className="truncate">{row.subtitlePrimary}</span>
           </div>
 
-          <div className="flex flex-wrap gap-x-3 gap-y-0 text-[10px] text-muted-foreground/70">
+          <div className="flex flex-wrap gap-x-3 gap-y-0 text-xs text-muted-foreground/70">
             {row.ownerName ? (
               <span>
                 <span className="opacity-60">Owner: </span>
@@ -781,8 +772,27 @@ export function ParcelDashboard({
   rows: DashboardRow[];
   source: "api" | "drizzle";
 }>) {
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedIdState] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
+
+  // Sync selectedId with ?deal= URL param for back/forward navigation
+  React.useEffect(() => {
+    const sp = new URLSearchParams(globalThis.location.search);
+    const id = sp.get("deal");
+    if (id) setSelectedIdState(id);
+  }, []);
+
+  function setSelectedId(id: string | null) {
+    setSelectedIdState(id);
+    const url = new URL(globalThis.location.href);
+    if (id) {
+      url.searchParams.set("deal", id);
+    } else {
+      url.searchParams.delete("deal");
+    }
+    globalThis.history.replaceState(null, "", url.pathname + url.search);
+  }
+
   const [tierFilter, setTierFilter] = React.useState<"all" | "A" | "B" | "C">("all");
   const [panelOpen, setPanelOpen] = React.useState(true);
   // detail = showing full detail view instead of list
@@ -894,7 +904,7 @@ export function ParcelDashboard({
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-3">
           <div className="pointer-events-auto mx-auto flex max-w-2xl items-center gap-2 rounded-2xl border border-white/20 bg-background/70 px-3 py-2 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
             {/* Source badge + count */}
-            <div className="flex items-center gap-1.5 text-[10px]">
+            <div className="flex items-center gap-1.5 text-xs">
               <span className={cn(
                 "flex items-center gap-1 rounded-md border px-1.5 py-0.5",
                 source === "api"
@@ -1017,7 +1027,7 @@ export function ParcelDashboard({
                         type="button"
                         onClick={() => setTierFilter(t)}
                         className={cn(
-                          "flex-1 rounded-md border py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors",
+                          "flex-1 rounded-md border py-1 text-xs font-semibold uppercase tracking-wide transition-colors",
                           isActive ? activeClass : "border-border/50 bg-transparent text-muted-foreground hover:bg-muted/30",
                         )}
                       >
@@ -1063,11 +1073,11 @@ export function ParcelDashboard({
               {/* Footer */}
               <div className="flex-none border-t border-border/40 px-4 py-2.5">
                 {source !== "api" ? (
-                  <p className="text-center text-[10px] text-amber-600/80 dark:text-amber-400/70">
+                  <p className="text-center text-xs text-amber-600/80 dark:text-amber-400/70">
                     Seed data — start the API + score parcels for live data
                   </p>
                 ) : (
-                  <p className="text-center text-[10px] text-muted-foreground/50">
+                  <p className="text-center text-xs text-muted-foreground/50">
                     Live · FastAPI + Supabase PostGIS
                   </p>
                 )}

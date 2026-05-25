@@ -26,10 +26,9 @@ function applyStandardLook(map: mapboxgl.Map) {
   map.easeTo({ pitch: 58, bearing: -30, duration: 1600 });
 }
 
-function scoreColor(score: number): string {
-  if (score >= 80) return "#10b981";
-  if (score >= 65) return "#38bdf8";
-  if (score >= 50) return "#f59e0b";
+function tierColor(tier: string | null): string {
+  if (tier === "A") return "#10b981";
+  if (tier === "B") return "#38bdf8";
   return "#6b7280";
 }
 
@@ -37,7 +36,7 @@ function buildMarkerEl(point: MapPoint, selected: boolean, onClick: () => void):
   const btn = document.createElement("button");
   btn.type = "button";
   btn.title = point.title;
-  const color = scoreColor(point.totalScore);
+  const color = tierColor(point.tier);
   btn.style.cssText = `
     display: flex;
     align-items: center;
@@ -179,7 +178,7 @@ export function ParcelMap({
     if (plotPoints.length === 0) return;
     for (const p of plotPoints) {
       const el = buildMarkerEl(p, focusedId === p.id, () => onMarkerSelect(p.id));
-      const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" })
+      const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
         .setLngLat([p.lng, p.lat])
         .addTo(map);
       markersRef.current.push(marker);
@@ -264,7 +263,7 @@ export function ParcelMap({
       )}
 
       {/* Map controls */}
-      <div className="pointer-events-none absolute left-2 top-16 z-10 flex flex-col gap-1.5">
+      <div className="pointer-events-none absolute left-2 top-16 z-20 flex flex-col gap-1.5">
         <button
           type="button"
           onClick={() => setFullscreen((v) => !v)}
@@ -293,11 +292,33 @@ export function ParcelMap({
 
       <div ref={containerRef} className={cn("w-full", mapHeightClass)} />
 
+      {/* Score legend */}
+      <div className={cn(
+        "pointer-events-none absolute rounded-xl border border-border/40 bg-background/90 px-3 py-2 backdrop-blur-sm",
+        fullscreen ? "bottom-8 left-4" : "bottom-8 left-3",
+      )}>
+        <p className="mb-1 text-[10px] font-semibold text-foreground/70">Deal Score (0–100)</p>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 text-[10px] text-foreground/60">
+            <span className="inline-block size-2.5 shrink-0 rounded-full bg-emerald-500" />
+            <span>Tier A — ≥ 70</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-foreground/60">
+            <span className="inline-block size-2.5 shrink-0 rounded-full bg-sky-500" />
+            <span>Tier B — 45–69</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-foreground/60">
+            <span className="inline-block size-2.5 shrink-0 rounded-full bg-zinc-400" />
+            <span>Tier C — &lt; 45</span>
+          </div>
+        </div>
+      </div>
+
       <p className={cn(
         "pointer-events-none absolute text-[10px] text-white/60",
         fullscreen ? "bottom-4 left-4" : "bottom-2 left-3",
       )}>
-        {plotPoints.length} markers &middot; {view3d ? "3D Standard" : `${mapTheme} flat`}
+        {plotPoints.length} markers {view3d ? "· 3D Standard" : `· ${mapTheme} flat`}
       </p>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   Clock,
   ExternalLink,
   GripVertical,
+  Info,
   KanbanSquare,
   MapPin,
   MessageSquare,
@@ -22,21 +23,22 @@ import {
 import { cn } from "@/lib/utils";
 import type { PipelineItem } from "@/lib/types/dashboard";
 import type { PipelineStatus } from "@/drizzle/schema";
-import { PIPELINE_STAGES } from "@/lib/types/dashboard";
+import { PIPELINE_STAGES, PIPELINE_STAGE_DEFINITIONS } from "@/lib/types/dashboard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
 
 function scoreColor(score: number) {
-  if (score >= 80) return "#10b981";
-  if (score >= 65) return "#38bdf8";
-  if (score >= 50) return "#f59e0b";
+  if (score >= 70) return "#10b981";
+  if (score >= 45) return "#38bdf8";
   return "#6b7280";
-}
-
-function tierFromScore(score: number): string {
-  if (score >= 80) return "A";
-  if (score >= 65) return "B";
-  return "C";
 }
 
 function tierBg(tier: string) {
@@ -95,19 +97,19 @@ function MiniRing({ value }: Readonly<{ value: number }>) {
         <circle cx={16} cy={16} r={r} fill="none" stroke={color} strokeWidth={2.5}
           strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} strokeLinecap="round" />
       </svg>
-      <span className="absolute text-[9px] font-bold tabular-nums" style={{ color }}>{value}</span>
+      <span className="absolute text-[11px] font-bold tabular-nums" style={{ color }}>{value}</span>
     </div>
   );
 }
 
 // ─── Score ring (large, for detail panel) ─────────────────────────────────────
 
-function ScoreRing({ value }: Readonly<{ value: number }>) {
+function ScoreRing({ value, tier }: Readonly<{ value: number; tier: string | null }>) {
   const r = 32;
   const circ = 2 * Math.PI * r;
   const pct = Math.min(100, Math.max(0, value)) / 100;
   const color = scoreColor(value);
-  const tier = tierFromScore(value);
+  const tierLabel = tier ?? "C";
   return (
     <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
       <svg width={80} height={80} className="-rotate-90">
@@ -117,7 +119,7 @@ function ScoreRing({ value }: Readonly<{ value: number }>) {
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className="text-xl font-bold tabular-nums leading-none" style={{ color }}>{value}</span>
-        <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-wide">Tier {tier}</span>
+        <span className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wide">Tier {tierLabel}</span>
       </div>
     </div>
   );
@@ -236,11 +238,11 @@ function DealDetailPanel({
               </p>
               <h2 className="text-[14px] font-semibold text-foreground leading-tight">{item.address}</h2>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60">
+                <span className="flex items-center gap-0.5 text-xs text-muted-foreground/60">
                   <MapPin className="size-2.5" />{item.county}
                 </span>
                 {item.parcelCode ? (
-                  <span className="rounded-md border border-border/40 bg-muted/30 px-1.5 py-px text-[9px] font-mono text-muted-foreground/50">
+                  <span className="rounded-md border border-border/40 bg-muted/30 px-1.5 py-px text-[11px] font-mono text-muted-foreground/50">
                     {item.parcelCode}
                   </span>
                 ) : null}
@@ -262,19 +264,19 @@ function DealDetailPanel({
 
             {/* ── Score + Tier ── */}
             <section className="flex items-center gap-5 rounded-2xl border border-border/40 bg-muted/20 px-5 py-4">
-              <ScoreRing value={item.totalScore} />
+              <ScoreRing value={item.totalScore} tier={item.tier} />
               <div className="flex-1 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">Deal Score</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">Deal Score</p>
                 <div className="space-y-1">
                   {breakdown.slice(0, 4).map(([key, val]) => {
                     const pct = Math.min(100, Math.max(0, Number(val)));
                     return (
                       <div key={key} className="flex items-center gap-2">
-                        <span className="w-[90px] truncate text-[9px] text-muted-foreground/60 capitalize">{key.replaceAll("_", " ")}</span>
+                        <span className="w-[90px] truncate text-[11px] text-muted-foreground/60 capitalize">{key.replaceAll("_", " ")}</span>
                         <div className="flex-1 h-1 rounded-full bg-border/30">
                           <div className="h-1 rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="text-[9px] tabular-nums text-muted-foreground/50">{Math.round(pct)}</span>
+                        <span className="text-[11px] tabular-nums text-muted-foreground/50">{Math.round(pct)}</span>
                       </div>
                     );
                   })}
@@ -284,7 +286,7 @@ function DealDetailPanel({
 
             {/* ── Pipeline status ── */}
             <section>
-              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
                 <Activity className="size-3" />
                 Pipeline Stage
               </p>
@@ -296,7 +298,7 @@ function DealDetailPanel({
                     disabled={statusChanging}
                     onClick={() => void handleStatusChange(stage.status)}
                     className={cn(
-                      "flex items-center gap-1 rounded-full border px-3 py-1 text-[10px] font-semibold transition-all duration-150",
+                      "flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold transition-all duration-150",
                       item.status === stage.status
                         ? cn(stagePillColor(stage.color), "ring-2 ring-offset-1 ring-offset-background ring-current/30")
                         : cn(stagePillColor(stage.color), "opacity-40 hover:opacity-80"),
@@ -313,7 +315,7 @@ function DealDetailPanel({
 
             {/* ── Parcel facts ── */}
             <section>
-              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
                 <Building2 className="size-3" />
                 Parcel Info
               </p>
@@ -327,7 +329,7 @@ function DealDetailPanel({
                   ["Updated", new Date(item.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })],
                 ].filter(([, v]) => v != null).map(([k, v]) => (
                   <div key={String(k)} className="space-y-0.5">
-                    <dt className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/40">{k}</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/40">{k}</dt>
                     <dd className="text-[11px] font-medium text-foreground/80">{String(v)}</dd>
                   </div>
                 ))}
@@ -337,7 +339,7 @@ function DealDetailPanel({
             {/* ── Score pillars (full list) ── */}
             {breakdown.length > 0 && (
               <section>
-                <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
                   <TrendingUp className="size-3" />
                   Score Breakdown
                 </p>
@@ -347,11 +349,11 @@ function DealDetailPanel({
                     const c = scoreColor(pct);
                     return (
                       <div key={key} className="flex items-center gap-3">
-                        <span className="w-[120px] shrink-0 truncate text-[10px] text-foreground/70 capitalize">{key.replaceAll("_", " ")}</span>
+                        <span className="w-[120px] shrink-0 truncate text-xs text-foreground/70 capitalize">{key.replaceAll("_", " ")}</span>
                         <div className="flex-1 h-1.5 rounded-full bg-border/30">
                           <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: c }} />
                         </div>
-                        <span className="text-[10px] tabular-nums font-semibold" style={{ color: c }}>{Math.round(pct)}</span>
+                        <span className="text-xs tabular-nums font-semibold" style={{ color: c }}>{Math.round(pct)}</span>
                       </div>
                     );
                   })}
@@ -361,7 +363,7 @@ function DealDetailPanel({
 
             {/* ── Notes ── */}
             <section>
-              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
                 <MessageSquare className="size-3" />
                 Notes
               </p>
@@ -375,14 +377,14 @@ function DealDetailPanel({
                 />
                 <div className="flex items-center justify-between">
                   {item.notes ? (
-                    <p className="text-[9px] text-muted-foreground/40 italic">Saved note: "{item.notes.substring(0, 50)}{item.notes.length > 50 ? "…" : ""}"</p>
+                    <p className="text-[11px] text-muted-foreground/40 italic">Saved note: "{item.notes.substring(0, 50)}{item.notes.length > 50 ? "…" : ""}"</p>
                   ) : (
                     <span />
                   )}
                   <button
                     type="submit"
                     disabled={!noteText.trim() || noteSaving}
-                    className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
                   >
                     {noteSaving ? <RefreshCw className="size-3 animate-spin" /> : <Send className="size-3" />}
                     Save note
@@ -393,23 +395,23 @@ function DealDetailPanel({
 
             {/* ── Activity log ── */}
             <section>
-              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
                 <Clock className="size-3" />
                 Activity
               </p>
               {activityLoading ? (
-                <p className="text-[10px] text-muted-foreground/40">Loading…</p>
+                <p className="text-xs text-muted-foreground/40">Loading…</p>
               ) : activity.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground/30 italic">No activity yet.</p>
+                <p className="text-xs text-muted-foreground/30 italic">No activity yet.</p>
               ) : (
                 <div className="space-y-2">
                   {activity.slice(-8).reverse().map((a) => (
                     <div key={a.id} className="flex gap-2.5 rounded-xl border border-border/30 bg-muted/10 px-3 py-2">
                       <div className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/50" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-medium text-foreground/70">{a.action}</p>
+                        <p className="text-xs font-medium text-foreground/70">{a.action}</p>
                         {a.note ? (
-                          <p className="mt-0.5 text-[9px] italic text-muted-foreground/60">{a.note}</p>
+                          <p className="mt-0.5 text-[11px] italic text-muted-foreground/60">{a.note}</p>
                         ) : null}
                         <p className="mt-0.5 text-[8px] text-muted-foreground/30">
                           {new Date(a.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
@@ -436,14 +438,14 @@ function DealDetailPanel({
             <button
               type="button"
               onClick={() => { onDelete(item.id); onClose(); }}
-              className="flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
+              className="flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
             >
               <Trash2 className="size-3.5" />
               Remove
             </button>
           </div>
           {currentStage && (
-            <p className="mt-2 text-center text-[9px] text-muted-foreground/30">
+            <p className="mt-2 text-center text-[11px] text-muted-foreground/30">
               Current stage: {currentStage.label} · Press Esc to close
             </p>
           )}
@@ -472,21 +474,8 @@ function DealCard({
   onMove: (id: string, status: PipelineStatus) => void;
   onDelete: (id: string) => void;
 }>) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
   const [didDrag, setDidDrag] = React.useState(false);
-  const tier = tierFromScore(item.totalScore);
-
-  const menuRef = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
+  const tier = item.tier ?? "C";
 
   const currentStage = PIPELINE_STAGES.find((s) => s.status === item.status);
 
@@ -526,12 +515,12 @@ function DealCard({
             <span className={cn("inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-[8px] font-bold uppercase tracking-wide", tierBg(tier))}>
               {tier}
             </span>
-            <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
+            <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
               <MapPin className="size-2 opacity-60" />{item.county}
             </span>
           </div>
           {item.zoningCode ? (
-            <p className="mt-0.5 text-[9px] text-muted-foreground/50">Zoning: {item.zoningCode}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground/50">Zoning: {item.zoningCode}</p>
           ) : null}
           {/* Stage indicator */}
           {currentStage && (
@@ -555,39 +544,38 @@ function DealCard({
         {/* Open detail hint + context menu */}
         <div className="flex shrink-0 items-start gap-0.5">
           <ChevronRight className="mt-0.5 size-3 text-muted-foreground/20 opacity-0 transition-opacity group-hover:opacity-100" />
-          <div ref={menuRef} className="relative">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-              className="rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:bg-muted/40"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
-            {menuOpen ? (
-              <div className="absolute right-0 top-5 z-50 min-w-[160px] rounded-xl border border-border/80 bg-card shadow-xl backdrop-blur-xl py-1">
-                <p className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">Move to</p>
-                {PIPELINE_STAGES.filter((s) => s.status !== item.status).map((stage) => (
-                  <button
-                    key={stage.status}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onMove(item.id, stage.status); setMenuOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] text-foreground/80 hover:bg-muted/40"
-                  >
-                    {stage.label}
-                  </button>
-                ))}
-                <div className="my-1 border-t border-border/40" />
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] text-red-600 dark:text-red-400 hover:bg-red-500/10"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => e.stopPropagation()}
+                className="rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:bg-muted/40"
+              >
+                <MoreHorizontal className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[164px]">
+              <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50">
+                Move to
+              </DropdownMenuLabel>
+              {PIPELINE_STAGES.filter((s) => s.status !== item.status).map((stage) => (
+                <DropdownMenuItem
+                  key={stage.status}
+                  onClick={(e) => { e.stopPropagation(); onMove(item.id, stage.status); }}
                 >
-                  <Trash2 className="size-3" />
-                  Remove
-                </button>
-              </div>
-            ) : null}
-          </div>
+                  {stage.label}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+              >
+                <Trash2 className="size-3" />
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
@@ -645,9 +633,15 @@ function KanbanColumn({
     >
       {/* Column header */}
       <div className={cn("flex items-center gap-2 border-b border-border/40 px-3 py-2.5", stageHeaderColor(stage.color))}>
-        <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.15em]">{stage.label}</span>
+        <span className="flex-1 text-xs font-bold uppercase tracking-[0.15em]">{stage.label}</span>
+        <div className="group relative">
+          <Info className="size-3 cursor-default opacity-50 hover:opacity-100 transition-opacity" aria-label={`About ${stage.label}`} />
+          <div className="pointer-events-none absolute bottom-full right-0 z-50 mb-1.5 w-48 rounded-lg border border-border/60 bg-popover px-2.5 py-2 text-[11px] leading-snug text-popover-foreground shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+            {PIPELINE_STAGE_DEFINITIONS[stage.status]}
+          </div>
+        </div>
         {items.length > 0 ? (
-          <span className="rounded-full bg-current/20 px-2 py-px text-[9px] font-bold tabular-nums opacity-70">
+          <span className="rounded-full bg-current/20 px-2 py-px text-[11px] font-bold tabular-nums opacity-70">
             {items.length}
           </span>
         ) : null}
@@ -657,7 +651,7 @@ function KanbanColumn({
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {items.length === 0 && !isDragOver ? (
           <div className="flex h-16 items-center justify-center">
-            <p className="text-[10px] text-muted-foreground/30">Drop here</p>
+            <p className="text-xs text-muted-foreground/30">Drop here</p>
           </div>
         ) : null}
 
@@ -759,16 +753,16 @@ export function PipelineBoard() {
             <KanbanSquare className="size-4 text-primary" />
             Deal Pipeline
           </div>
-          <span className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+          <span className="rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
             {items.length} deals
           </span>
           <div className="flex-1" />
           {draggingId ? (
-            <p className="text-[10px] text-primary/70 animate-pulse">
+            <p className="text-xs text-primary/70 animate-pulse">
               Drop into a column to move the deal
             </p>
           ) : (
-            <p className="text-[10px] text-muted-foreground/40 hidden sm:block">
+            <p className="text-xs text-muted-foreground/40 hidden sm:block">
               Click a card to see details · Drag to move between stages
             </p>
           )}
