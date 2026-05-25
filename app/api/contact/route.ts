@@ -14,6 +14,13 @@ export type ContactResult = {
   registered_agent?: string | null;
   principal_address?: string | null;
   officers?: { name: string; title: string; address?: string }[];
+  top_contact?: {
+    name: string;
+    role: string;
+    confidence: number;
+    reasoning: string;
+    source: string;
+  } | null;
   source?: string;
   fetched_at?: string;
   contact_tip?: string;
