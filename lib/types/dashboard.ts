@@ -81,3 +81,12 @@ export const PIPELINE_STAGES: { status: PipelineStatus; label: string; color: st
   { status: "closed",         label: "Closed",         color: "green" },
   { status: "dead",           label: "Dead",           color: "red" },
 ];
+
+export const PIPELINE_STAGE_DEFINITIONS: Record<PipelineStatus, string> = {
+  spotted:        "Identified on the map — worth examining closer.",
+  reviewing:      "Due diligence in progress; owner contacted.",
+  loi_submitted:  "Letter of Intent sent and awaiting response.",
+  under_contract: "Under contract — closing in progress.",
+  closed:         "Transaction complete.",
+  dead:           "Abandoned — reason should be noted.",
+};
