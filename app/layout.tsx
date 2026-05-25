@@ -11,6 +11,12 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "DealScout — Prosper Group",
   description: "Florida parcel scoring for Prosper Group Miami.",
+  icons: {
+    icon: [
+      { url: "/noun.png", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
