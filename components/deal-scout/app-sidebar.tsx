@@ -2,15 +2,16 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   KanbanSquare,
   Map,
   Moon,
-  Sparkles,
   Sun,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { ReplayWalkthrough } from "@/components/deal-scout/app-walkthrough";
 
 const NAV_ITEMS = [
   { href: "/",          icon: Map,          label: "Deals Map"  },
@@ -40,8 +41,8 @@ export function AppSidebar() {
   return (
     <aside className="flex h-full w-12 flex-col items-center gap-1 border-r border-border/50 bg-background/95 backdrop-blur-xl py-3 shrink-0">
       {/* Logo */}
-      <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-primary/10">
-        <Sparkles className="size-4 text-primary" />
+      <div className="mb-3 flex size-9 items-center justify-center">
+        <Image src="/noun.png" alt="DealScout" width={28} height={28} className="object-contain" />
       </div>
 
       {/* Nav items */}
@@ -53,6 +54,7 @@ export function AppSidebar() {
               key={href}
               href={href}
               title={label}
+              data-tour={href === "/pipeline" ? "pipeline-nav" : undefined}
               className={cn(
                 "group relative flex size-9 items-center justify-center rounded-xl transition-all",
                 isActive
@@ -74,8 +76,9 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Theme toggle at bottom */}
+      {/* Theme toggle + replay tour at bottom */}
       <ThemeBtn />
+      <ReplayWalkthrough />
     </aside>
   );
 }

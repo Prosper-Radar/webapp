@@ -27,6 +27,7 @@ import {
   Globe,
   BadgeCheck,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import type { ContactResult } from "@/app/api/contact/route";
 import { ParcelMap } from "@/components/deal-scout/parcel-map";
@@ -109,11 +110,34 @@ function ScoreRing({ value, size = 56 }: Readonly<{ value: number; size?: number
 
 // ─── Score bar ────────────────────────────────────────────────────────────────
 
+function scoreJustification(label: string, value: number): string {
+  const high = value >= 70;
+  const mid  = value >= 45;
+  switch (label) {
+    case "Waterfront":
+      return high ? "Prime waterfront exposure" : mid ? "Moderate proximity to water" : "Limited waterfront access";
+    case "Zoning":
+      return high ? "High-density zoning (T5/T6/CBD)" : mid ? "Mixed-use or moderate density" : "Restrictive zoning class";
+    case "Price":
+      return high ? "Price aligns with acquisition target" : mid ? "Slightly above target range" : "Price outside target range";
+    case "Lot size":
+      return high ? "Lot size meets development threshold" : mid ? "Marginal lot size for the zone" : "Lot likely too small to assemble";
+    case "Population":
+      return high ? "Strong demographic growth nearby" : mid ? "Moderate population growth" : "Slow or declining growth area";
+    case "Traffic":
+      return high ? "High AADT — strong visibility" : mid ? "Moderate traffic volume" : "Low-traffic corridor";
+    case "Recency":
+      return high ? "Recent sale — owner may be motivated" : mid ? "Sold within last few years" : "Long-held — outreach may be harder";
+    default:
+      return high ? "Strong" : mid ? "Average" : "Below average";
+  }
+}
+
 function ScoreBar({ label, value }: Readonly<{ label: string; value: number }>) {
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{label}</span>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
         <span className="tabular-nums font-medium text-foreground/70">{value}</span>
       </div>
       <div className="h-1 overflow-hidden rounded-full bg-border/50">
@@ -122,6 +146,7 @@ function ScoreBar({ label, value }: Readonly<{ label: string; value: number }>) 
           style={{ width: `${value}%`, background: scoreColor(value) }}
         />
       </div>
+      <p className="text-[11px] text-muted-foreground/45 leading-none">{scoreJustification(label, value)}</p>
     </div>
   );
 }
@@ -157,7 +182,7 @@ const LINK_META: Record<string, { label: string; icon: React.ReactNode; color: s
   bizapedia:       { label: "Bizapedia FL",      icon: <FileText className="size-3" />,     color: "text-muted-foreground" },
 };
 
-function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerName?: string | null }>) {
+function ContactSection({ dealId, ownerName, lat, lng }: Readonly<{ dealId: string; ownerName?: string | null; lat?: number | null; lng?: number | null }>) {
   const [contact, setContact] = React.useState<ContactResult | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [ran, setRan] = React.useState(false);
@@ -186,25 +211,36 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
           <Phone className="size-3" />
           Owner Contact
         </p>
-        {ran && !loading ? (
-          <button
-            type="button"
-            onClick={() => runSkipTrace(true)}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
-          >
-            <RefreshCw className="size-2.5" /> Refresh
-          </button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {lat != null && lng != null ? (
+            <a
+              href={`https://maps.google.com/?q=${lat},${lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              <MapPin className="size-2.5" /> Maps
+            </a>
+          ) : null}
+          {ran && !loading ? (
+            <button
+              type="button"
+              onClick={() => runSkipTrace(true)}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              <RefreshCw className="size-2.5" /> Refresh
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {!ran ? (
-        /* Pre-run state */
         <div className="rounded-xl border border-dashed border-border/60 p-3 text-center">
           {ownerName ? (
             <p className="mb-2 truncate text-xs font-medium text-foreground/70">{ownerName}</p>
           ) : null}
           <p className="mb-3 text-xs text-muted-foreground/50">
-            Search public records & Sunbiz for owner info
+            Search public records &amp; Sunbiz for owner info
           </p>
           <button
             type="button"
@@ -216,15 +252,34 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
           </button>
         </div>
       ) : loading ? (
-        /* Loading */
         <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
-          Searching Sunbiz & public records…
+          Searching Sunbiz &amp; public records…
         </div>
       ) : contact ? (
-        /* Results */
         <div className="space-y-2.5">
-          {/* Entity summary */}
+
+          {/* ── Most likely contact (AI-ranked) ── */}
+          {contact.top_contact ? (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="size-3 text-emerald-500" />
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                  Most likely contact
+                </span>
+                <span className="ml-auto text-[11px] text-muted-foreground/50">
+                  {Math.round(contact.top_contact.confidence * 100)}% confidence
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-foreground/90">{contact.top_contact.name}</p>
+              <p className="text-[11px] text-muted-foreground/70">{contact.top_contact.role}</p>
+              {contact.top_contact.reasoning ? (
+                <p className="mt-1 text-[11px] text-muted-foreground/50 italic">{contact.top_contact.reasoning}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* ── Entity summary ── */}
           {contact.found ? (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5 space-y-1.5">
               {contact.entity_type ? (
@@ -262,11 +317,14 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
             </p>
           )}
 
-          {/* Officers */}
+          {/* ── Officers (collapsed if top_contact exists) ── */}
           {contact.officers && contact.officers.length > 0 ? (
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50">Officers / Contacts</p>
-              <div className="space-y-1.5">
+            <details className="group" open={!contact.top_contact}>
+              <summary className="cursor-pointer list-none flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                <ChevronRight className="size-2.5 transition-transform group-open:rotate-90" />
+                Officers / Contacts ({contact.officers.length})
+              </summary>
+              <div className="mt-1.5 space-y-1.5">
                 {contact.officers.map((o) => (
                   <div key={`${o.name}-${o.title}`} className="flex items-start gap-2 rounded-lg border border-border/40 bg-card/40 px-2.5 py-2">
                     <User className="mt-0.5 size-3 shrink-0 text-muted-foreground/40" />
@@ -278,23 +336,23 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           ) : null}
 
-          {/* Contact tip */}
+          {/* ── Contact tip ── */}
           {contact.contact_tip ? (
             <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-300">
               💡 {contact.contact_tip}
             </p>
           ) : null}
 
-          {/* Search links */}
+          {/* ── Search links (collapsed) ── */}
           {contact.links && Object.keys(contact.links).length > 0 ? (
-            <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50">
-                {contact.is_individual ? "Find individual" : "Find company contact"}
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
+            <details>
+              <summary className="cursor-pointer list-none text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                {contact.is_individual ? "Find individual" : "Find company contact"} — {Object.keys(contact.links).length} sources ▸
+              </summary>
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                 {Object.entries(contact.links).map(([key, url]) => {
                   const meta = LINK_META[key];
                   return (
@@ -315,7 +373,7 @@ function ContactSection({ dealId, ownerName }: Readonly<{ dealId: string; ownerN
                   );
                 })}
               </div>
-            </div>
+            </details>
           ) : null}
 
           <p className="text-center text-[11px] text-muted-foreground/30">
@@ -491,64 +549,31 @@ function DealDetailPanel({
             </section>
           ) : null}
 
-          {/* ── Financial data ── */}
-          <section>
-            <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
-              <DollarSign className="size-3" />
-              Financials
-            </p>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
-              <FactItem icon={<DollarSign className="size-2.5" />} label="Land Value" value={fmt$(row.landValue)} />
-              <FactItem icon={<DollarSign className="size-2.5" />} label="Building Value" value={fmt$(row.buildingValue)} />
-              <FactItem icon={<DollarSign className="size-2.5" />} label="Total Value" value={fmt$(row.totalValue ?? (row.landValue != null ? (row.landValue + (row.buildingValue ?? 0)) : null))} />
-              <FactItem icon={<Ruler className="size-2.5" />} label="Lot Size" value={fmtSqft(row.lotSizeSqft)} />
-            </dl>
-          </section>
-
-          {/* ── Sale history ── */}
-          {(row.lastSaleDate || row.lastSalePrice) ? (
-            <section>
-              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
-                <Calendar className="size-3" />
-                Last Transaction
-              </p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
-                <FactItem icon={<Calendar className="size-2.5" />} label="Sale Date" value={fmtDate(row.lastSaleDate)} />
-                <FactItem icon={<DollarSign className="size-2.5" />} label="Sale Price" value={fmt$(row.lastSalePrice)} />
-              </dl>
-            </section>
-          ) : null}
-
-          {/* ── Owner info ── */}
-          {row.ownerName ? (
-            <section>
-              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
-                <User className="size-3" />
-                Owner Info
-              </p>
-              <dl className="space-y-2 text-xs">
-                <FactItem icon={<User className="size-2.5" />} label="Owner" value={row.ownerName} wide />
-                {row.ownerAddress ? (
-                  <FactItem icon={<MapPin className="size-2.5" />} label="Mailing Address" value={row.ownerAddress} wide />
-                ) : null}
-              </dl>
-            </section>
-          ) : null}
-
-          {/* ── Parcel details ── */}
+          {/* ── Property data (financials + sale + owner + parcel merged) ── */}
           <section>
             <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
               <FileText className="size-3" />
-              Parcel Details
+              Property
             </p>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
+              <FactItem icon={<DollarSign className="size-2.5" />} label="Land Value" value={fmt$(row.landValue)} />
+              <FactItem icon={<DollarSign className="size-2.5" />} label="Total Value" value={fmt$(row.totalValue ?? (row.landValue != null ? (row.landValue + (row.buildingValue ?? 0)) : null))} />
+              <FactItem icon={<Ruler className="size-2.5" />} label="Lot Size" value={fmtSqft(row.lotSizeSqft)} />
               <FactItem icon={<FileText className="size-2.5" />} label="Zoning" value={row.zoningCode ?? "—"} />
-              <FactItem icon={<MapPin className="size-2.5" />} label="County" value={row.county ?? row.subtitlePrimary} />
-              {row.lat != null && row.lng != null ? (
-                <FactItem icon={<MapPin className="size-2.5" />} label="Coordinates" value={`${row.lat.toFixed(4)}, ${row.lng.toFixed(4)}`} mono />
+              {(row.lastSaleDate || row.lastSalePrice) ? (
+                <>
+                  <FactItem icon={<Calendar className="size-2.5" />} label="Last Sale" value={fmtDate(row.lastSaleDate)} />
+                  <FactItem icon={<DollarSign className="size-2.5" />} label="Sale Price" value={fmt$(row.lastSalePrice)} />
+                </>
+              ) : null}
+              {row.ownerName ? (
+                <FactItem icon={<User className="size-2.5" />} label="Owner" value={row.ownerName} wide />
+              ) : null}
+              {row.ownerAddress ? (
+                <FactItem icon={<MapPin className="size-2.5" />} label="Mailing Address" value={row.ownerAddress} wide />
               ) : null}
               {row.parcelId ? (
-                <FactItem icon={<FileText className="size-2.5" />} label="Parcel ID" value={row.parcelId} mono />
+                <FactItem icon={<FileText className="size-2.5" />} label="Parcel ID" value={row.parcelId} mono wide />
               ) : null}
             </dl>
           </section>
@@ -601,28 +626,7 @@ function DealDetailPanel({
           ) : null}
 
           {/* ── Contact / Skip Trace ── */}
-          <ContactSection dealId={row.id} ownerName={row.ownerName} />
-
-          {/* ── Quick actions ── */}
-          <section>
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
-              Quick Actions
-            </p>
-            <div className="flex flex-col gap-2">
-              {row.lat != null && row.lng != null ? (
-                <a
-                  href={`https://maps.google.com/?q=${row.lat},${row.lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-[11px] font-medium text-foreground/80 hover:bg-card/70 transition-colors"
-                >
-                  <MapPin className="size-3.5 text-muted-foreground" />
-                  Open in Google Maps
-                  <ExternalLink className="ml-auto size-3 text-muted-foreground/40" />
-                </a>
-              ) : null}
-            </div>
-          </section>
+          <ContactSection dealId={row.id} ownerName={row.ownerName} lat={row.lat} lng={row.lng} />
         </div>
       </div>
     </div>
@@ -942,7 +946,7 @@ export function ParcelDashboard({
         </div>
 
         {/* Map */}
-        <div className="h-full w-full">
+        <div className="h-full w-full" data-tour="map">
           <ParcelMap
             points={mapPoints}
             focusedId={selectedId}
@@ -1012,7 +1016,7 @@ export function ParcelDashboard({
                 </div>
 
                 {/* Tier filters */}
-                <div className="flex gap-1">
+                <div className="flex gap-1" data-tour="filters">
                   {(["all", "A", "B", "C"] as const).map((t) => {
                     const isActive = tierFilter === t;
                     const activeClass =
@@ -1039,7 +1043,7 @@ export function ParcelDashboard({
               </div>
 
               {/* Scrollable list */}
-              <div className="flex-1 overflow-y-auto scroll-smooth">
+              <div className="flex-1 overflow-y-auto scroll-smooth" data-tour="deal-list">
                 {filtered.length === 0 ? (
                   <div className="flex h-40 flex-col items-center justify-center gap-2 text-center px-6">
                     <Building2 className="size-8 text-muted-foreground/25" />
